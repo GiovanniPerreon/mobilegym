@@ -1,10 +1,10 @@
 """
-GenericAgentV2 - 使用 <think></think> <answer></answer> 格式的纯视觉 GUI Agent。
+GenericAgentV2 - pure vision GUI agent using <think></think> <answer></answer> format.
 
-特点：
-- 输出格式为 <think>思考过程</think> <answer>JSON动作</answer>
-- 不包含当前路由信息（模拟真实的纯视觉手机 GUI Agent）
-- 支持环境的完整动作空间（除 NOOP 外）
+Features:
+- Output format: <think>reasoning</think> <answer>JSON action</answer>
+- No current route information (simulates a real pure‑vision mobile GUI agent)
+- Supports the full action space of the environment (except NOOP)
 """
 
 from __future__ import annotations
@@ -20,59 +20,58 @@ from bench_env.llm import LLMClient
 
 class GenericAgentV2(BaseAgent):
     """
-    纯视觉 GUI Agent，使用 think/answer 格式。
+    Pure‑vision GUI agent using think/answer format.
     
-    特点：
-    - 输出格式：<THINK>思考过程</THINK> <ANSWER>JSON动作</ANSWER>
-    - 适用于评估模型的纯视觉 GUI 操作能力
+    Features:
+    - Output format: <THINK>reasoning</THINK> <ANSWER>JSON action</ANSWER>
+    - Suitable for evaluating a model's pure‑vision GUI operation ability
     """
 
-    SYSTEM_PROMPT: ClassVar[str] = """你是一个手机 GUI-Agent 操作专家。你需要根据用户下发的任务、手机屏幕截图以及历史操作记录，分析当前界面并输出一个动作来与手机交互，从而完成任务。
+    SYSTEM_PROMPT: ClassVar[str] = """You are a phone GUI‑Agent operation expert. Based on the user's task, phone screenshots, and operation history, analyze the current interface and output a single action to interact with the phone and complete the task.
 
-坐标系：左上角为原点，x 向右，y 向下，取值范围均为 0-1000（归一化坐标）。
+Coordinate system: Origin is the top‑left corner, x increases to the right, y increases downward. Both x and y range from 0 to 1000 (normalized coordinates).
 
-可用动作（JSON 格式）：
+Available actions (JSON format):
 
-1. 点击：{"action": "CLICK", "point": [x, y]}
-2. 双击：{"action": "DOUBLE_TAP", "point": [x, y]}
-3. 长按：{"action": "LONGPRESS", "point": [x, y]}
-4. 输入：{"action": "TYPE", "value": "文本内容"}  // 可选 "point": [x, y] 指定输入位置；可选 "clear": true 先清空输入框再输入（默认追加到已有文本后面）
-5. 滑动：{"action": "SWIPE", "point1": [x1, y1], "point2": [x2, y2]}
-6. 拖拽：{"action": "DRAG", "point1": [x1, y1], "point2": [x2, y2]}  // 按住起点拖动到终点
-7. 返回：{"action": "BACK"}
-8. 回到桌面：{"action": "HOME"}
-9. 打开最近任务：{"action": "RECENT"}
-10. 输入回车：{"action": "ENTER"}
-11. 等待：{"action": "WAIT", "value": 秒数}
-12. 打开应用：{"action": "AWAKE", "value": "应用名称"}
-13. 提交答案：{"action": "ANSWER", "value": "纯答案文本"}
-14. 任务完成：{"action": "COMPLETE", "return": "完成说明"} // 所有任务完成后使用，给出简短的说明
-15. 中止任务：{"action": "ABORT", "value": "中止原因"}  // 任务无法完成时使用，需要说明原因
+1. Click: {"action": "CLICK", "point": [x, y]}
+2. Double‑tap: {"action": "DOUBLE_TAP", "point": [x, y]}
+3. Long press: {"action": "LONGPRESS", "point": [x, y]}
+4. Type: {"action": "TYPE", "value": "text content"} // Optional: "point": [x, y] to specify input location; optional "clear": true to clear the input field first (default is to append to existing text)
+5. Swipe: {"action": "SWIPE", "point1": [x1, y1], "point2": [x2, y2]}
+6. Drag: {"action": "DRAG", "point1": [x1, y1], "point2": [x2, y2]} // press and drag from start to end
+7. Back: {"action": "BACK"}
+8. Go to home: {"action": "HOME"}
+9. Open recent tasks: {"action": "RECENT"}
+10. Press Enter: {"action": "ENTER"}
+11. Wait: {"action": "WAIT", "value": seconds}
+12. Open an app: {"action": "AWAKE", "value": "app_name"}
+13. Submit answer: {"action": "ANSWER", "value": "plain answer text"}
+14. Complete task: {"action": "COMPLETE", "return": "completion explanation"} // Use after all subtasks are done, provide a brief explanation
+15. Abort task: {"action": "ABORT", "value": "abort reason"} // Use if the task cannot be completed, state the reason
 
-
-你必须按以下格式输出：
+You must output in the following format:
 
 <THINK>
-在这里描述你对当前屏幕的理解、分析和决策过程。
-包括：
-1. 当前屏幕显示的内容是什么
-2. 为了完成任务，下一步应该做什么
-3. 具体要点击/操作哪个元素
+Describe your understanding, analysis and decision process of the current screen.
+Include:
+1. What is shown on the current screen?
+2. What should be done next to complete the task?
+3. Which element should be clicked / operated on?
 </THINK>
 <ANSWER>
 {
-  "action": "动作类型",
-  // 根据动作类型填写相应参数
+  "action": "action_type",
+  // Fill in corresponding parameters based on the action type
 }
 </ANSWER>
 
-
-要求：
-- 坐标必须为数字，范围 0-1000
-- JSON 必须是有效格式
-- 仔细观察屏幕截图，根据视觉信息做出判断
-- 需要回答问题时，必须使用 ANSWER 提交答案
-- COMPLETE 只用于结束任务，需要在执行完任务后使用
+Requirements:
+- Coordinates must be integers in the range 0-1000.
+- JSON must be valid.
+- Observe the screenshot carefully and make decisions based on visual information.
+- When you need to answer a question, you MUST use the ANSWER action.
+- Use COMPLETE only to end the task, after you have performed the necessary actions.
+- All your responses, including both the analysis and the JSON, MUST be in English.
 """
 
     ACTION_MAP: ActionMapping = {
@@ -107,13 +106,13 @@ class GenericAgentV2(BaseAgent):
         # "reasoning_effort": "none",
         # "extra_body": {
             # "chat_template_kwargs": {"enable_thinking": True},  # Qwen3.x via chat template ✓
-            # "enable_thinking": False,           # 旧版 vLLM 扁平参数,对 Qwen3.6-35B-A3B 无效
-            # "reasoning_effort": "none",         # OpenAI o1/o3 系
-            # "reasoning": {"effort": "none"},    # OpenAI GPT-5 系
+            # "enable_thinking": False,           # Legacy vLLM flat parameter, ineffective for Qwen3.6-35B-A3B
+            # "reasoning_effort": "none",         # OpenAI o1/o3 series
+            # "reasoning": {"effort": "none"},    # OpenAI GPT‑5 series
         # },
     }
 
-    # ==================== 初始化 ====================
+    # ==================== Initialization ====================
 
     def __init__(self, llm: LLMClient, config: Optional[AgentConfig] = None):
         super().__init__(config)
@@ -131,12 +130,12 @@ class GenericAgentV2(BaseAgent):
         self._task = task
         self._history = []
 
-    # ==================== 响应解析 ====================
+    # ==================== Response parsing ====================
 
     @staticmethod
     def _extract_think_answer(text: str) -> tuple[str, str]:
         """
-        从文本中提取 <think> 和 <answer> 内容。
+        Extract <think> and <answer> content from the text.
         
         Returns:
             (think_content, answer_content)
@@ -144,12 +143,12 @@ class GenericAgentV2(BaseAgent):
         think_content = ""
         answer_content = ""
         
-        # 提取 <think>...</think>（不区分大小写，兼容 <THINK>/<think>）
+        # Extract <think>...</think> (case‑insensitive)
         think_match = re.search(r'<think>(.*?)</think>', text, re.DOTALL | re.IGNORECASE)
         if think_match:
             think_content = think_match.group(1).strip()
         
-        # 提取 <answer>...</answer>（不区分大小写，兼容 <ANSWER>/<answer>）
+        # Extract <answer>...</answer> (case‑insensitive)
         answer_match = re.search(r'<answer>(.*?)</answer>', text, re.DOTALL | re.IGNORECASE)
         if answer_match:
             answer_content = answer_match.group(1).strip()
@@ -158,7 +157,7 @@ class GenericAgentV2(BaseAgent):
 
     @staticmethod
     def _extract_first_json(text: str) -> Optional[str]:
-        """从文本中提取第一个 JSON 对象"""
+        """Extract the first JSON object from the text."""
         s = text
         start = s.find("{")
         if start < 0:
@@ -188,7 +187,7 @@ class GenericAgentV2(BaseAgent):
 
     def _parse_llm_output(self, response_text: str) -> tuple[str, dict[str, Any]]:
         """
-        解析 LLM 输出为 (thought, action_dict)。
+        Parse LLM output into (thought, action_dict).
         
         Returns:
             (thought, action_dict)
@@ -197,14 +196,14 @@ class GenericAgentV2(BaseAgent):
         if not raw:
             return "", {"_error": "empty_response"}
 
-        # 提取 think 和 answer 部分
+        # Extract think and answer parts
         think_content, answer_content = self._extract_think_answer(raw)
         
-        # 如果没有找到 <answer> 标签，尝试直接解析整个文本
+        # If no <answer> tag, try to parse the whole text
         if not answer_content:
             answer_content = raw
         
-        # 解析 answer 中的 JSON
+        # Parse JSON from answer
         parsed: Any = None
         try:
             parsed = json.loads(answer_content)
@@ -222,7 +221,7 @@ class GenericAgentV2(BaseAgent):
         return think_content, parsed
 
     def parse_response(self, response_text: str) -> Action:
-        """解析 LLM 响应为 Action"""
+        """Parse LLM response into an Action"""
         thought, parsed = self._parse_llm_output(response_text)
         
         if "_error" in parsed:
@@ -243,27 +242,27 @@ class GenericAgentV2(BaseAgent):
             raw_response=response_text,
         )
 
-    # ==================== 消息构建 ====================
+    # ==================== Message building ====================
 
     def build_messages(self, obs: Observation) -> list[dict]:
         """
-        构建发送给 LLM 的消息。
+        Build messages to send to the LLM.
         
-        使用完整多轮对话历史（类似 AutoGLMAgent）：
-        - 历史步骤：user（任务/步骤标记） + assistant（模型响应）
-        - 当前步骤：user（截图+提示）
+        Uses full multi‑turn conversation history (like AutoGLMAgent):
+        - Historical steps: user (task/step marker) + assistant (model response)
+        - Current step: user (screenshot + prompt)
         
-        注意：不包含当前路由信息，作为纯视觉 GUI Agent。
+        Note: Does not include current route information; acts as a pure‑vision GUI agent.
         """
         messages: list[dict] = [
             {"role": "system", "content": self.SYSTEM_PROMPT}
         ]
 
-        # 构建历史对话
+        # Build conversation history
         for i, record in enumerate(self._history):
-            # 历史 user 消息（不含截图）
+            # Historical user message (no screenshot)
             if i == 0:
-                user_text = f"[任务]\n{self._task}"
+                user_text = f"[Task]\n{self._task}"
             else:
                 user_text = f"[Step {i + 1}]"
             
@@ -272,16 +271,16 @@ class GenericAgentV2(BaseAgent):
                 "content": [{"type": "text", "text": user_text}],
             })
             
-            # 历史 assistant 响应
+            # Historical assistant response
             messages.append({
                 "role": "assistant",
                 "content": record.llm_response,
             })
 
-        # 当前步骤（带截图）
+        # Current step (with screenshot)
         step_num = len(self._history) + 1
         if len(self._history) == 0:
-            user_text = f"[任务]\n{self._task}"
+            user_text = f"[Task]\n{self._task}"
         else:
             user_text = f"[Step {step_num}]"
 
@@ -295,10 +294,10 @@ class GenericAgentV2(BaseAgent):
 
         return messages
 
-    # ==================== 核心逻辑 ====================
+    # ==================== Core logic ====================
 
     def act(self, obs: Observation) -> Action:
-        """生成动作"""
+        """Generate an action."""
         messages = self.build_messages(obs)
 
         if self.config.verbose:
@@ -326,7 +325,7 @@ class GenericAgentV2(BaseAgent):
             llm_prompt=messages,
         ))
 
-        # 内存瘦身：历史仅用文本，保留最近 2 条完整记录
+        # Memory optimisation: keep only the last 2 full records as text
         self._evict_old_records(keep_recent=2)
 
         if self.config.verbose:

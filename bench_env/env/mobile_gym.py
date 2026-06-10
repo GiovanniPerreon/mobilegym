@@ -349,6 +349,8 @@ class MobileGymEnv(BaseMobileEnv):
         "答题卡": "answer_sheet",
         "Answer Sheet": "answer_sheet",
         "AnswerSheet": "answer_sheet",
+        # healthmonitor
+        "healthmonitor": "healthmonitor",
     }
 
     # Valid coordinate space options
@@ -572,12 +574,6 @@ class MobileGymEnv(BaseMobileEnv):
             headers = dict(response.headers)
             headers.pop("x-frame-options", None)
             headers.pop("X-Frame-Options", None)
-            headers.pop("cross-origin-resource-policy", None)
-            headers.pop("Cross-Origin-Resource-Policy", None)
-            headers.pop("cross-origin-embedder-policy", None)
-            headers.pop("Cross-Origin-Embedder-Policy", None)
-            headers.pop("cross-origin-opener-policy", None)
-            headers.pop("Cross-Origin-Opener-Policy", None)
             for key in ["content-security-policy", "Content-Security-Policy"]:
                 if key in headers:
                     csp = re.sub(r"frame-ancestors[^;]*;?\s*", "", headers[key])
