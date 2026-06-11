@@ -3,7 +3,7 @@ from bench_env.task.judge import JudgeInput
 
 class ReadHealthScore(BaseTask):
     description = (
-        "Open the HealthMonitor app and make sure the displayed health score is 70 or higher. "
+        "Make sure the displayed health score is 70 or higher. "
         "You can click the refresh button if the current score is too low."
     )
     apps = ["healthmonitor"]
