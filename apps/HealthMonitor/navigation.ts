@@ -1,4 +1,3 @@
-// apps/HealthMonitor/navigation.ts
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NAVIGATION_DECLARATION, type TransitionId } from './navigation.declaration';
@@ -17,7 +16,6 @@ export function useAppNavigate() {
         throw new Error(`Transition not found: ${id}`);
       }
 
-      // Handle pop mode by going back in history
       if (transition.mode === 'pop') {
         navigate(-1);
         return;

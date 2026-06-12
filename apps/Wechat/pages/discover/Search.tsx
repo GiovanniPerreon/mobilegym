@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { dimens } from '../../res/dimens';
 import { useWechatStrings } from '../../hooks/useWechatStrings';
@@ -114,14 +113,14 @@ export const SearchPage: React.FC = () => {
               <div className="w-4 h-4 rounded-full border border-(--app-c-tw-border-gray-300) flex items-center justify-center">
                 <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
               </div>
-              <span className="text-(--app-search-filter-text-size) text-(--app-c-settings-item-extra-text)">深度思考</span>
+              <span className="text-(--app-search-filter-text-size) text-(--app-c-settings-item-extra-text)">Deep Thinking</span>
             </div>
             <div className="h-4 w-(--app-discover-search-width-1) bg-(--app-c-tw-bg-gray-200)"></div>
             <IcCamera size={dimens.icSizeCheck} className="text-(--app-c-settings-item-extra-text) cursor-pointer active:opacity-60" />
             <IcAdd size={dimens.icSizeCheck} className="text-(--app-c-settings-item-extra-text) cursor-pointer active:opacity-60" />
           </div>
           <div className="text-(--app-c-address-link-text) text-(--app-search-filter-text-size) font-medium cursor-pointer active:opacity-60">
-            AI搜索
+            AI Search
           </div>
         </div>
       )}
@@ -178,7 +177,7 @@ export const SearchPage: React.FC = () => {
           )}
           {noResults && (
             <div className="flex items-center justify-center py-16 text-(--app-c-settings-item-extra-text) text-(--app-settings-group-title-size)">
-              未找到相关结果
+              No relevant results found
             </div>
           )}
         </div>
@@ -190,7 +189,7 @@ export const SearchPage: React.FC = () => {
           <div className="flex-1"></div>
           <div className="pb-10 text-center">
             <button className="text-(--app-c-address-link-text) text-(--app-settings-group-title-size) font-medium active:opacity-60">
-              页面设置
+              Page Settings
             </button>
           </div>
         </>

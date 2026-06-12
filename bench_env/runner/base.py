@@ -255,8 +255,12 @@ class Controller:
                     trial_id=trial_id,
                 )
 
-            logger.info(f"Instruction: {task.description}")
-            agent.reset(task.description)
+            # --- MODIFICATION: Use second template if available for instruction ---
+            instr = task.templates[1] if len(task.templates) >= 2 else task.description
+            logger.info(f"Instruction: {instr}")
+            agent.reset(instr)
+            # --------------------------------------------------------------------
+
             done, truncated, stop_reason = False, False, None
 
             from bench_env.env.stopwatch import set_current_stopwatch

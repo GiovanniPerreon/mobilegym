@@ -21,6 +21,11 @@ interface AlbumGroup {
   allImages: string[];
 }
 
+const monthNames = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+];
+
 export const MomentsAlbum: React.FC = () => {
   const t = useWechatStrings();
   const { user, moments } = useWechatStore(useShallow(s => ({ user: s.user, moments: s.moments })));
@@ -60,10 +65,10 @@ export const MomentsAlbum: React.FC = () => {
         label = t.common_today;
       } else if (isYesterday) {
         key = 'yesterday';
-        label = '昨天';
+        label = 'Yesterday';
       } else {
         key = `${y}-${mo}`;
-        label = `${mo}月`;
+        label = monthNames[mo - 1];  // e.g., "Dec"
       }
 
       const images = m.images || [];
@@ -71,12 +76,10 @@ export const MomentsAlbum: React.FC = () => {
       if (map.has(key)) {
         const g = map.get(key)!;
         g.allImages.push(...images);
-        // 如果原本存的时间比现在小（倒序遍历时可能不需要，但为了保险），更新 sortTs？
-        // 这里的遍历是按时间倒序的 (myMoments sorted)，所以第一个遇到的就是最新的
       } else {
         map.set(key, {
           key,
-          sortTs: m.timestamp, // 使用该组最新一条的时间戳排序
+          sortTs: m.timestamp,
           year: y,
           month: mo,
           label,
@@ -85,7 +88,7 @@ export const MomentsAlbum: React.FC = () => {
       }
     }
     return Array.from(map.values()).sort((a, b) => b.sortTs - a.sortTs);
-  }, [myMoments]);
+  }, [myMoments, t.common_today]);
 
   // 过滤掉没有图片的分组
   const displayGroups = useMemo(() => {
@@ -101,7 +104,7 @@ export const MomentsAlbum: React.FC = () => {
           onClick={() => setActiveTab('album')}
           className={`flex-1 py-3 text-(--app-chat-bubble-text-size) font-normal relative ${activeTab === 'album' ? 'text-app-primary' : 'text-(--app-c-settings-item-text)'}`}
         >
-          朋友圈相册
+          Moments Album
           {activeTab === 'album' && (
             <div className="absolute bottom-0 left-0 right-0 h-(--app-divider-height-2) bg-app-primary" />
           )}
@@ -111,7 +114,7 @@ export const MomentsAlbum: React.FC = () => {
           onClick={() => setActiveTab('status')}
           className={`flex-1 py-3 text-(--app-chat-bubble-text-size) font-normal relative ${activeTab === 'status' ? 'text-app-primary' : 'text-(--app-c-settings-item-text)'}`}
         >
-          状态
+          Status
           {activeTab === 'status' && (
             <div className="absolute bottom-0 left-0 right-0 h-(--app-divider-height-2) bg-app-primary" />
           )}
@@ -125,25 +128,20 @@ export const MomentsAlbum: React.FC = () => {
             className="flex items-center justify-end px-4 py-3 text-(--app-search-filter-text-size) text-(--app-c-settings-item-text) active:bg-(--app-c-tw-bg-gray-50) cursor-pointer"
             {...bindTap<HTMLDivElement>('momentsAlbum.myTimeline.open', { params: { wxid } })}
           >
-            我的朋友圈
+            My Moments
             <IcNavForward size={dimens.icSizeChevron} className="text-(--app-c-me-chevron-color) ml-0.5" strokeWidth={dimens.icStrokeWidth} />
           </div>
 
           {/* 按时间分组内容 */}
           <div className="px-5 pb-8">
             {displayGroups.length === 0 ? (
-              <div className="py-12 text-center text-(--app-c-search-empty-text) text-(--app-search-filter-text-size)">暂无朋友圈相册</div>
+              <div className="py-12 text-center text-(--app-c-search-empty-text) text-(--app-search-filter-text-size)">No moments yet</div>
             ) : (
               displayGroups.map((group, index) => {
                 const prevGroup = displayGroups[index - 1];
-                // 仅在年份发生变化时显示年份标题
-                // 且逻辑调整：如果是今年，通常不显示年份；只有往年才显示年份
                 const currentYear = TimeService.getDate().getFullYear();
                 const isCurrentYear = group.year === currentYear;
                 
-                // 显示年份的条件：
-                // 1. 不是今年
-                // 2. 且 (是列表第一项 OR 年份与上一项不同)
                 const showYear = !isCurrentYear && (index === 0 || group.year !== prevGroup?.year);
 
                 return (
@@ -151,7 +149,7 @@ export const MomentsAlbum: React.FC = () => {
                     {/* 年份标题 (左对齐) */}
                     {showYear && (
                       <div className="text-(--app-title-text-size-26) font-bold text-app-text mb-3 leading-none">
-                        {group.year}年
+                        {group.year}
                       </div>
                     )}
 
@@ -191,7 +189,7 @@ export const MomentsAlbum: React.FC = () => {
 
       {activeTab === 'status' && (
         <div className="flex-1 flex items-center justify-center text-(--app-c-search-empty-text) text-(--app-search-filter-text-size)">
-          暂无状态
+          No status
         </div>
       )}
     </div>

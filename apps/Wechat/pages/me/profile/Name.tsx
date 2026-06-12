@@ -41,7 +41,7 @@ export const ChangeNamePage = () => {
                 className="w-full bg-transparent border-b border-app-primary py-2 text-lg focus:outline-none" 
                 autoFocus
             />
-            <p className="text-(--app-c-common-text-hint) text-sm mt-2">好名字可以让你的朋友更容易记住你。</p>
+            <p className="text-(--app-c-common-text-hint) text-sm mt-2">A good name helps your friends remember you more easily.</p>
         </div>
     );
 };

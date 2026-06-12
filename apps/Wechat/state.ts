@@ -869,4 +869,3 @@ export const selectTextMomentDraft = memoSelector(
   (state: WechatState & WechatActions) => state.textMomentDraft,
   (draft) => draft ?? EMPTY_TEXT_MOMENT_DRAFT,
 );
-

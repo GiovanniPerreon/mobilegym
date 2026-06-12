@@ -1,12 +1,12 @@
 /**
- * WeChat App 数据入口（默认数据 + 运行时派生）
+ * WeChat App Data Entry (default data + runtime derived)
  *
- * 说明：
- * - 默认数据来自 `defaults.json`（可替换以构建不同测试环境）
- * - 时间戳支持 `resolveDataTimestamp` 的 4 种格式（见 TimeService）：
- *   - `"-1h"` / `"-2d30m"` 等可读相对偏移
- *   - 负数 ms 偏移、绝对时间戳、日期字符串
- * - time 类型消息的 `content` 会在此处根据 timestamp 重新生成（保证"昨天/xx月xx日"逻辑一致）
+ * Description:
+ * - Default data comes from `defaults.json` (replaceable to build different test environments)
+ * - Timestamp supports 4 formats of `resolveDataTimestamp` (see TimeService):
+ *   - `"-1h"` / `"-2d30m"` etc. human-readable relative offsets
+ *   - negative ms offset, absolute timestamp, date string
+ * - `content` of time‑type messages is regenerated here based on timestamp (ensuring "Yesterday/xx/xx" logic is consistent)
  */
 
 import { resolveDataTimestamp, now, fromTimestamp } from '../../../os/TimeService';
@@ -32,12 +32,14 @@ const formatChatTimeline = (timestamp: number): string => {
   if (isSameDay(date, nowDate)) return timeStr;
   const yesterday = fromTimestamp(nowDate.getTime());
   yesterday.setDate(nowDate.getDate() - 1);
-  if (isSameDay(date, yesterday)) return `昨天 ${timeStr}`;
+  if (isSameDay(date, yesterday)) return `Yesterday ${timeStr}`;
 
   if (date.getFullYear() === nowDate.getFullYear()) {
-    return `${date.getMonth() + 1}月${date.getDate()}日 ${timeStr}`;
+    // English format: "MM/DD HH:MM"
+    return `${date.getMonth() + 1}/${date.getDate()} ${timeStr}`;
   }
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${timeStr}`;
+  // English format: "YYYY/MM/DD HH:MM"
+  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${timeStr}`;
 };
 
 const withResolvedTimestamps = (data: any): AppData => {
@@ -84,7 +86,7 @@ const resolveAssetsDeep = (value: unknown): unknown => {
 let cachedWechatConfig: AppData | null = null;
 
 /**
- * data-mode 直接使用完整初始数据（不再维护额外的"导航专用投影层/接口"）。
+ * data-mode uses the full initial data directly (no longer maintain a separate "navigation projection layer/interface").
  */
 export function getWechatConfig(): AppData {
   if (cachedWechatConfig) return cachedWechatConfig;

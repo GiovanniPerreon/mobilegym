@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { dimens } from '../../../res/dimens';
 import { IcLocation, IcNavForward, IcCheck } from '../../../res/icons';
 import { useWechatStore } from '../../../state';
 import { useShallow } from 'zustand/react/shallow';
 import { useWechatGestures } from '../../../hooks/useWechatGestures';
+
 export const RegionPage = () => {
     const { user, updateUser } = useWechatStore(useShallow(s => ({
         user: s.user,
@@ -14,19 +14,19 @@ export const RegionPage = () => {
     const [selected, setSelected] = useState(user.region);
 
     // This is the mocked system GPS location
-    const deviceLocation = user.currentLocation || "中国大陆 北京";
+    const deviceLocation = user.currentLocation || "Mainland China Beijing";
     
     const regions = [
-        { label: '中国香港', actionId: 'profile.region.select.hongKong' },
-        { label: '中国澳门', actionId: 'profile.region.select.macao' },
-        { label: '中国台湾', actionId: 'profile.region.select.taiwan' },
-        { label: '阿尔巴尼亚', actionId: 'profile.region.select.albania' },
-        { label: '阿尔及利亚', actionId: 'profile.region.select.algeria' },
-        { label: '阿富汗', actionId: 'profile.region.select.afghanistan' },
-        { label: '阿根廷', actionId: 'profile.region.select.argentina' },
-        { label: '阿联酋', actionId: 'profile.region.select.uae' },
-        { label: '阿鲁巴', actionId: 'profile.region.select.aruba' },
-        { label: '阿曼', actionId: 'profile.region.select.oman' },
+        { label: 'Hong Kong', actionId: 'profile.region.select.hongKong' },
+        { label: 'Macau', actionId: 'profile.region.select.macao' },
+        { label: 'Taiwan', actionId: 'profile.region.select.taiwan' },
+        { label: 'Albania', actionId: 'profile.region.select.albania' },
+        { label: 'Algeria', actionId: 'profile.region.select.algeria' },
+        { label: 'Afghanistan', actionId: 'profile.region.select.afghanistan' },
+        { label: 'Argentina', actionId: 'profile.region.select.argentina' },
+        { label: 'United Arab Emirates', actionId: 'profile.region.select.uae' },
+        { label: 'Aruba', actionId: 'profile.region.select.aruba' },
+        { label: 'Oman', actionId: 'profile.region.select.oman' },
     ] as const;
 
     const handleSelect = (region: string) => {
@@ -69,7 +69,7 @@ export const RegionPage = () => {
     return (
         <div className="min-h-full bg-app-bg">
             {/* Current Position (System GPS Location) */}
-            <div className="px-4 py-2 text-(--app-c-tw-text-gray-500) text-xs mt-2">当前位置</div>
+            <div className="px-4 py-2 text-(--app-c-tw-text-gray-500) text-xs mt-2">Current Location</div>
             <div 
                 className="bg-app-surface px-4 py-3 flex items-center mb-2 active:bg-(--app-c-tw-bg-gray-50) cursor-pointer"
                 {...bindTap<HTMLDivElement>(
@@ -82,18 +82,18 @@ export const RegionPage = () => {
             </div>
             
             {/* All Regions List */}
-            <div className="px-4 py-2 text-(--app-c-tw-text-gray-500) text-xs">全部地区</div>
+            <div className="px-4 py-2 text-(--app-c-tw-text-gray-500) text-xs">All Regions</div>
             <div className="bg-app-surface">
                 <div 
                     className="flex justify-between items-center px-4 py-3 border-b border-(--app-c-tw-border-gray-100) active:bg-(--app-c-tw-bg-gray-50) cursor-pointer" 
                     {...bindTap<HTMLDivElement>(
                         { kind: 'action', id: 'profile.region.select.mainland' },
-                        { onTrigger: () => handleSelect('中国大陆') },
+                        { onTrigger: () => handleSelect('Mainland China') },
                     )}
                 >
-                    <span className="text-(--app-chat-bubble-text-size)">中国大陆</span>
+                    <span className="text-(--app-chat-bubble-text-size)">Mainland China</span>
                     <div className="flex items-center text-(--app-c-tw-text-gray-400) text-sm">
-                        {selected.includes('中国大陆') && <span className="mr-2 text-app-primary">已选</span>}
+                        {selected.includes('Mainland China') && <span className="mr-2 text-app-primary">Selected</span>}
                         <IcNavForward size={dimens.icSizeChevronSm} />
                     </div>
                 </div>

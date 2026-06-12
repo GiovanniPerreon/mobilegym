@@ -1,4 +1,3 @@
-// apps/HealthMonitor/pages/HealthDetailPage.tsx
 import React from 'react';
 import { useAppNavigate } from '../navigation';
 
