@@ -8,7 +8,10 @@ For N screens per app it records, for each text format (html, a11y, json):
     a11y ref box, and share of a11y interactive nodes that have a name
 and the length of the candidate action list.
 
-Screens are reached with a seeded random walk (tap a random candidate; BACK if none).
+Screens are reached with a seeded random walk (tap a random candidate; BACK if none), staying inside
+the app and counting only DISTINCT screens (route path + content hash). AWAKE candidates use all
+known apps. Per-step time with model inference is NOT measured here: read the `profile:` lines of a
+real run (infer=...) for that.
 Usage (simulator running, e.g. npm run preview):
   python -m bench_env.tools.measure_views --env-url http://127.0.0.1:4173 \
       --apps bilibili,calendar --screens 10 --out measure_out
@@ -26,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from bench_env.env.candidates import build_candidates
-from bench_env.env.text_view import FORMATS, extract_view
+from bench_env.env.text_view import FORMATS, extract_view  # noqa
 
 
 def make_counter(tokenizer: str | None):
@@ -70,27 +73,41 @@ async def measure_screen(page: Any, route: dict, apps: list[str], count) -> tupl
 
 
 async def main_async(a: argparse.Namespace) -> None:
+    import hashlib
     from bench_env.env.base import Action, ActionType
     from bench_env.env.mobile_gym import MobileGymEnv
     rng = random.Random(a.seed)
     count, how = make_counter(a.tokenizer)
+    known = sorted(MobileGymEnv._KNOWN_APP_IDS)
+    apps = known if a.apps == "all" else [x for x in a.apps.split(",") if x]
+    awake = known if not a.awake_apps else [x for x in a.awake_apps.split(",") if x]
     env = MobileGymEnv(url=a.env_url, headless=True)
     await env.start()
     await env.wait_ready()
     all_rows: list[dict] = []
-    apps = [x for x in a.apps.split(",") if x]
     for app in apps:
         await env.open_app(app)
-        for i in range(a.screens):
+        seen: set[str] = set()
+        tries = 0
+        while len(seen) < a.screens and tries < a.screens * a.max_tries_factor:
+            tries += 1
             await asyncio.sleep(a.settle)
             route = await env.get_route() or {}
-            rows, cands = await measure_screen(env.page, route, apps, count)
-            for r in rows:
-                all_rows.append({"app": app, "screen_idx": i, "path": route.get("path", ""), **r})
+            if route.get("app") and route.get("app") != app:      # walked out of the app: go back in
+                await env.open_app(app)
+                continue
+            rows, cands = await measure_screen(env.page, route, awake, count)
+            key = f'{route.get("path", "")}|' + hashlib.md5(
+                (await extract_view(env.page, "json", route))["text"].encode()).hexdigest()[:10]
+            if key not in seen:                                    # count each distinct screen once
+                seen.add(key)
+                for r in rows:
+                    all_rows.append({"app": app, "screen_idx": len(seen) - 1, "path": route.get("path", ""), **r})
             taps = [c for c in cands if c["action"] == "CLICK"]
             act = (Action(action_type=ActionType.CLICK, data={"point": rng.choice(taps)["point"]}) if taps
                    else Action(action_type=ActionType.BACK, data={}))
             await env.step(act)
+        print(f"[measure] {app}: {len(seen)} distinct screens in {tries} steps", flush=True)
     await env.close()
 
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
@@ -122,7 +139,9 @@ async def main_async(a: argparse.Namespace) -> None:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--env-url", default="http://127.0.0.1:4173")
-    p.add_argument("--apps", required=True, help="comma-separated app ids")
+    p.add_argument("--apps", required=True, help="comma-separated app ids, or \"all\" for every known app")
+    p.add_argument("--awake-apps", default="", help="app ids offered as AWAKE candidates (default: all known apps)")
+    p.add_argument("--max-tries-factor", type=int, default=5, help="max steps per app = screens * this")
     p.add_argument("--screens", type=int, default=10)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--settle", type=float, default=1.0)

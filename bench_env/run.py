@@ -12,6 +12,11 @@ from bench_env.logger import configure_logging
 from bench_env.task_listing import list_tasks
 
 
+# Inference settings of the MobileGym paper for generalist models (thesis report, section 1.7)
+PAPER_PRESET = {"max_tokens": 4096, "delay_after_action": 0.8, "loop_detect": 10,
+                "temperature": 0.1, "top_p": 0.95, "infer_timeout": 300.0}
+
+
 def create_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Mobile GUI Agent Benchmark")
 
@@ -169,6 +174,10 @@ def create_parser() -> argparse.ArgumentParser:
 
     # Agent
     p.add_argument("--agent", choices=list_agents(), default="generic_v2")
+    p.add_argument("--preset", choices=["paper"], default=None,
+                   help="'paper': inference settings of the MobileGym paper (max_tokens 4096, delay 0.8 s, "
+                        "loop-detect 10, temperature 0.1, top_p 0.95, infer-timeout 300). Applied only to "
+                        "options left at their default; explicit values win (with a warning).")
     p.add_argument("--obs", choices=["screenshot", "html", "a11y", "json"], default=None,
                    help="Text observation format for --agent generic_text: html (visible HTML), "
                         "a11y (accessibility tree), json (view JSON from data-trigger). "
@@ -403,7 +412,16 @@ async def async_main(args) -> int:
 
 
 def main(argv=None) -> int:
-    args = create_parser().parse_args(argv)
+    parser = create_parser()
+    args = parser.parse_args(argv)
+    if args.preset == "paper":
+        for key, val in PAPER_PRESET.items():
+            cur, dflt = getattr(args, key), parser.get_default(key)
+            if cur == dflt:
+                setattr(args, key, val)
+            elif cur != val:
+                print(f"[WARN] --preset paper wants {key}={val} but you passed {cur}; keeping {cur}")
+        print("[preset paper] " + " ".join(f"{k}={getattr(args, k)}" for k in PAPER_PRESET))
     # Observation mode is read by the env (also in shard subprocesses, which inherit env vars)
     if args.obs:
         os.environ["BENCH_OBS"] = args.obs
