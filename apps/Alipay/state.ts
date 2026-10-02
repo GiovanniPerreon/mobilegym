@@ -93,7 +93,7 @@ export function computeUnread(conv: ConversationItem, chatHistory: Record<string
 
 export interface AlipayStoreState {
   userInfo: typeof ALIPAY_CONFIG.userInfo;
-  language: typeof ALIPAY_CONFIG.language | null;
+  language: string | null;
   balance: typeof ALIPAY_CONFIG.balance;
   transferRecords: typeof ALIPAY_CONFIG.transferRecords;
   notifications: NotificationCard[];
@@ -123,7 +123,7 @@ export interface AlipayStoreState {
 // ── Actions interface ───────────────────────────────────────────────
 
 export interface AlipayActions {
-  setLanguage: (lang: typeof ALIPAY_CONFIG.language | null) => void;
+  setLanguage: (lang: string | null) => void;
   deductBalance: (amount: number) => void;
   recordTransfer: (params: {
     counterpartyName: string;

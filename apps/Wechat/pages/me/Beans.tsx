@@ -11,16 +11,16 @@ export const BeansPage = () => {
                  <div className="w-6 h-6 bg-app-surface rounded-full opacity-30 transform -rotate-45"></div>
              </div>
              <div className="text-xl font-medium text-app-text mb-2">{t.settings_wechat_beans}</div>
-             <div className="text-(--app-c-tw-text-gray-400) text-lg mb-12">暂无微信豆</div>
+             <div className="text-(--app-c-tw-text-gray-400) text-lg mb-12">No WeChat Beans</div>
 
              <button className="w-40 bg-app-primary text-white py-2.5 rounded font-medium">
-                 充值
+                 Top Up
              </button>
          </div>
          <div className="mt-auto mb-8 flex gap-4 text-sm text-white opacity-80">
-             <span>了解微信豆</span>
+             <span>About WeChat Beans</span>
              <span>|</span>
-             <span>常见问题</span>
+             <span>FAQ</span>
          </div>
     </div>
   );

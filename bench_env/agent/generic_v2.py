@@ -27,52 +27,51 @@ class GenericAgentV2(BaseAgent):
     - 适用于评估模型的纯视觉 GUI 操作能力
     """
 
-    SYSTEM_PROMPT: ClassVar[str] = """你是一个手机 GUI-Agent 操作专家。你需要根据用户下发的任务、手机屏幕截图以及历史操作记录，分析当前界面并输出一个动作来与手机交互，从而完成任务。
+    SYSTEM_PROMPT: ClassVar[str] = """You are a phone GUI‑Agent operation expert. Based on the user's task, phone screenshots, and operation history, analyze the current interface and output a single action to interact with the phone and complete the task.
 
-坐标系：左上角为原点，x 向右，y 向下，取值范围均为 0-1000（归一化坐标）。
+Coordinate system: Origin is the top‑left corner, x increases to the right, y increases downward. Both x and y range from 0 to 1000 (normalized coordinates).
 
-可用动作（JSON 格式）：
+Available actions (JSON format):
 
-1. 点击：{"action": "CLICK", "point": [x, y]}
-2. 双击：{"action": "DOUBLE_TAP", "point": [x, y]}
-3. 长按：{"action": "LONGPRESS", "point": [x, y]}
-4. 输入：{"action": "TYPE", "value": "文本内容"}  // 可选 "point": [x, y] 指定输入位置；可选 "clear": true 先清空输入框再输入（默认追加到已有文本后面）
-5. 滑动：{"action": "SWIPE", "point1": [x1, y1], "point2": [x2, y2]}
-6. 拖拽：{"action": "DRAG", "point1": [x1, y1], "point2": [x2, y2]}  // 按住起点拖动到终点
-7. 返回：{"action": "BACK"}
-8. 回到桌面：{"action": "HOME"}
-9. 打开最近任务：{"action": "RECENT"}
-10. 输入回车：{"action": "ENTER"}
-11. 等待：{"action": "WAIT", "value": 秒数}
-12. 打开应用：{"action": "AWAKE", "value": "应用名称"}
-13. 提交答案：{"action": "ANSWER", "value": "纯答案文本"}
-14. 任务完成：{"action": "COMPLETE", "return": "完成说明"} // 所有任务完成后使用，给出简短的说明
-15. 中止任务：{"action": "ABORT", "value": "中止原因"}  // 任务无法完成时使用，需要说明原因
+1. Click: {"action": "CLICK", "point": [x, y]}
+2. Double‑tap: {"action": "DOUBLE_TAP", "point": [x, y]}
+3. Long press: {"action": "LONGPRESS", "point": [x, y]}
+4. Type: {"action": "TYPE", "value": "text content"} // Optional: "point": [x, y] to specify input location; optional "clear": true to clear the input field first (default is to append to existing text)
+5. Swipe: {"action": "SWIPE", "point1": [x1, y1], "point2": [x2, y2]}
+6. Drag: {"action": "DRAG", "point1": [x1, y1], "point2": [x2, y2]} // press and drag from start to end
+7. Back: {"action": "BACK"}
+8. Go to home: {"action": "HOME"}
+9. Open recent tasks: {"action": "RECENT"}
+10. Press Enter: {"action": "ENTER"}
+11. Wait: {"action": "WAIT", "value": seconds}
+12. Open an app: {"action": "AWAKE", "value": "app_name"}
+13. Submit answer: {"action": "ANSWER", "value": "plain answer text"}
+14. Complete task: {"action": "COMPLETE", "return": "completion explanation"} // Use after all subtasks are done, provide a brief explanation
+15. Abort task: {"action": "ABORT", "value": "abort reason"} // Use if the task cannot be completed, state the reason
 
-
-你必须按以下格式输出：
+You must output in the following format:
 
 <THINK>
-在这里描述你对当前屏幕的理解、分析和决策过程。
-包括：
-1. 当前屏幕显示的内容是什么
-2. 为了完成任务，下一步应该做什么
-3. 具体要点击/操作哪个元素
+Describe your understanding, analysis and decision process of the current screen.
+Include:
+1. What is shown on the current screen?
+2. What should be done next to complete the task?
+3. Which element should be clicked / operated on?
 </THINK>
 <ANSWER>
 {
-  "action": "动作类型",
-  // 根据动作类型填写相应参数
+  "action": "action_type",
+  // Fill in corresponding parameters based on the action type
 }
 </ANSWER>
 
-
-要求：
-- 坐标必须为数字，范围 0-1000
-- JSON 必须是有效格式
-- 仔细观察屏幕截图，根据视觉信息做出判断
-- 需要回答问题时，必须使用 ANSWER 提交答案
-- COMPLETE 只用于结束任务，需要在执行完任务后使用
+Requirements:
+- Coordinates must be integers in the range 0-1000.
+- JSON must be valid.
+- Observe the screenshot carefully and make decisions based on visual information.
+- When you need to answer a question, you MUST use the ANSWER action.
+- Use COMPLETE only to end the task, after you have performed the necessary actions.
+- All your responses, including both the analysis and the JSON, MUST be in English.
 """
 
     ACTION_MAP: ActionMapping = {
@@ -263,7 +262,7 @@ class GenericAgentV2(BaseAgent):
         for i, record in enumerate(self._history):
             # 历史 user 消息（不含截图）
             if i == 0:
-                user_text = f"[任务]\n{self._task}"
+                user_text = f"[Task]\n{self._task}"
             else:
                 user_text = f"[Step {i + 1}]"
             
@@ -281,7 +280,7 @@ class GenericAgentV2(BaseAgent):
         # 当前步骤（带截图）
         step_num = len(self._history) + 1
         if len(self._history) == 0:
-            user_text = f"[任务]\n{self._task}"
+            user_text = f"[Task]\n{self._task}"
         else:
             user_text = f"[Step {step_num}]"
 

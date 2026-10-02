@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import time
 from abc import ABC, abstractmethod
 from collections import deque
@@ -22,6 +23,21 @@ if TYPE_CHECKING:
     from bench_env.task.vlm_judge import VLMJudge
 
 logger = get_logger(__name__)
+
+_CJK_RE = re.compile(r"[一-鿿]")
+
+def _contains_cjk(text: str) -> bool:
+    return bool(_CJK_RE.search(text or ""))
+
+def _prefer_english_template(task) -> None:
+    if getattr(task, "_instruction_override", None) is not None:
+        return
+    if getattr(task, "_template_index", None) is not None:
+        return
+    for idx, tpl in enumerate(getattr(task, "templates", None) or []):
+        if not _contains_cjk(tpl):
+            task._template_index = idx
+            return
 
 class Evaluator:
     """Evaluates task success and side effects."""
@@ -191,6 +207,7 @@ class Controller:
         Returns:
             tuple: (initial_obs, params_dict)
         """
+        _prefer_english_template(task)
         initial_obs = await task.setup(env)
 
         # Grounded mode: inject answer_sheet state after _post_sample.
@@ -213,7 +230,10 @@ class Controller:
             }}}, deep=True, reload=False)
             # Append answer sheet hint via task_name (instance attribute,
             # highest priority in description property — no ClassVar shadow)
-            task.task_name = task.description + " 然后打开 答题卡 APP 在里面回答问题并提交"
+            if _contains_cjk(task.description):
+                task.task_name = task.description + " 然后打开 答题卡 APP 在里面回答问题并提交"
+            else:
+                task.task_name = task.description + " Then open the Answer Sheet app, answer the question there and submit."
 
         return initial_obs, dict(task.params)
 

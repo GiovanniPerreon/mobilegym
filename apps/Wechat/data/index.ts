@@ -32,12 +32,12 @@ const formatChatTimeline = (timestamp: number): string => {
   if (isSameDay(date, nowDate)) return timeStr;
   const yesterday = fromTimestamp(nowDate.getTime());
   yesterday.setDate(nowDate.getDate() - 1);
-  if (isSameDay(date, yesterday)) return `昨天 ${timeStr}`;
+  if (isSameDay(date, yesterday)) return `Yesterday ${timeStr}`;
 
   if (date.getFullYear() === nowDate.getFullYear()) {
-    return `${date.getMonth() + 1}月${date.getDate()}日 ${timeStr}`;
+    return `${date.getMonth() + 1}/${date.getDate()} ${timeStr}`;
   }
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${timeStr}`;
+  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${timeStr}`;
 };
 
 const withResolvedTimestamps = (data: any): AppData => {

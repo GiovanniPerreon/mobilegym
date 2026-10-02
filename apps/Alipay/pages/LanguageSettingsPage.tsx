@@ -3,6 +3,7 @@ import React from 'react';
 import { IcNavBack, IcCheck } from '../res/icons';
 import { useAlipayStore } from '../state';
 import { useAlipayGestures } from '../hooks/useAlipayGestures';
+import { useLocale } from '../locale';
 type Lang = 'zh-CN' | 'zh-TW' | 'zh-HK' | 'en';
 
 const LANG_OPTIONS: { id: Lang; label: string }[] = [
@@ -17,7 +18,8 @@ export const LanguageSettingsPage: React.FC = () => {
   const setLanguage = useAlipayStore(s => s.setLanguage);
   const { bindTap, bindBack, back } = useAlipayGestures();
   const s = useAlipayStrings();
-  const [draft, setDraft] = React.useState<Lang>((language as Lang) || 'zh-CN');
+  const locale = useLocale();
+  const [draft, setDraft] = React.useState<Lang>((language as Lang) || (locale === 'en' ? 'en' : 'zh-CN'));
 
   return (
     <div className="bg-app-surface h-full w-full flex flex-col pt-10">

@@ -290,7 +290,7 @@
       "collectVisibility": "private",
       "commentVisibility": "public"
     },
-    "language": "zh-CN"
+    "language": null
   },
   "storage": {
     "cacheSizeBytes": 5382144

@@ -104,7 +104,7 @@ export const NearbyPeople: React.FC = () => {
                  />
                </g>
              </svg>
-             <div className="text-white text-(--app-search-filter-text-size) text-center">正在查找<br/>{t.discover_nearby}</div>
+             <div className="text-white text-(--app-search-filter-text-size) text-center">Searching<br/>{t.discover_nearby}</div>
            </div>
         </div>,
         document.body
