@@ -18,10 +18,28 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from typing import Any
 
 FORMATS = ("html", "a11y", "json")
-MAX_HTML_CHARS = int(os.environ.get("BENCH_OBS_MAX_HTML", "60000"))
+# HTML budget. The server context is fixed at launch, so the observation must fit it:
+#   budget = half of what is left after the output reserve (max_tokens 4096) and the system prompt (~1200);
+#   the other half is kept for the history (the agent resends its previous answers).
+# Override with BENCH_OBS_MAX_TOKENS. BENCH_CTX is set by the Docker entrypoint (the -c of llama-server).
+OUTPUT_RESERVE_TOKENS = 4096
+SYSTEM_RESERVE_TOKENS = 1200
+HTML_CHARS_PER_TOKEN = float(os.environ.get("BENCH_OBS_CHARS_PER_TOKEN", "3.0"))   # conservative for HTML markup
+
+
+def html_token_budget() -> int:
+    v = os.environ.get("BENCH_OBS_MAX_TOKENS", "").strip()
+    if v:
+        return int(v)
+    ctx = int(os.environ.get("BENCH_CTX", "16384") or 16384)
+    return max(1000, (ctx - OUTPUT_RESERVE_TOKENS - SYSTEM_RESERVE_TOKENS) // 2)
+
+
+MAX_HTML_CHARS = int(html_token_budget() * HTML_CHARS_PER_TOKEN)
 
 
 def obs_mode() -> str:
@@ -59,10 +77,15 @@ const label = (el) => clean(el.getAttribute('aria-label') || el.innerText || el.
 """
 
 # ---------------------------------------------------------------- HTML
-_JS_HTML = "(maxChars) => {" + _JS_COMMON + r"""
-const KEEP = ['id','class','role','type','name','placeholder','value','href','alt','title','for','checked','disabled',
+_JS_HTML = "({maxChars, lvl}) => {" + _JS_COMMON + r"""
+const KEEP_ALL = ['id','class','role','type','name','placeholder','value','href','alt','title','for','checked','disabled',
               'selected','data-trigger','data-trigger-type','data-trigger-params','data-action','data-action-type',
               'data-action-params'];
+// lvl 0: everything (unchanged). lvl 1: no id/class (styling noise). lvl 2: also no trigger type/params, 'for';
+// non-interactive icons/images without alt dropped. The interactive elements and their refs are never dropped.
+const DROP1 = new Set(['id','class']);
+const DROP2 = new Set(['id','class','for','data-trigger-type','data-trigger-params','data-action-type','data-action-params']);
+const KEEP = KEEP_ALL.filter(k => lvl === 0 ? true : lvl === 1 ? !DROP1.has(k) : !DROP2.has(k));
 const DROP_TAGS = new Set(['script','style','noscript','template','link','meta','head','title']);
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const refs = {};
@@ -75,7 +98,7 @@ function ser(node) {
   if (!shown(node)) return '';
   const r = node.getBoundingClientRect();
   if (r.width > 0 && r.height > 0 && !inView(r)) return '';   // fully outside the viewport
-  if (tag === 'svg') return '<svg/>';
+  if (tag === 'svg') return lvl >= 2 && !node.matches(INTERACTIVE) ? '' : '<svg/>';
   let attrs = '';
   for (const k of KEEP) {
     let v = node.getAttribute(k);
@@ -93,16 +116,14 @@ function ser(node) {
   }
   let inner = '';
   for (const c of node.childNodes) inner += ser(c);
-  if (tag === 'img') return `<img${attrs}>`;
+  if (tag === 'img') return (lvl >= 2 && !node.getAttribute('alt') && !node.matches(INTERACTIVE)) ? '' : `<img${attrs}>`;
   if (!attrs && (tag === 'div' || tag === 'span')) return inner;   // pure wrappers add nothing
   if (!inner && !attrs) return '';
   nodes += 1;
   return `<${tag}${attrs}>${inner}</${tag}>`;
 }
 let html = ser(document.body);
-const truncated = html.length > maxChars;
-if (truncated) html = html.slice(0, maxChars);
-return {text: html, refs, truncated, nodes};
+return {text: html, refs, truncated: false, nodes, chars: html.length};
 }"""
 
 # ---------------------------------------------------------------- JSON of the view
@@ -154,9 +175,24 @@ return {visible_texts, transitions, fields, refs};
 
 
 async def _html(page: Any) -> dict[str, Any]:
-    d = await page.evaluate(_JS_HTML, MAX_HTML_CHARS)
-    return {"text": d["text"], "refs": d["refs"],
-            "stats": {"nodes": d["nodes"], "truncated": d["truncated"]}}
+    """Pruned HTML that fits the token budget. Levels 0..2 drop styling noise first (see _JS_HTML);
+    only if level 2 still exceeds the budget is the text cut, and refs not in the cut text are removed."""
+    d: dict[str, Any] = {}
+    lvl = 0
+    for lvl in (0, 1, 2):
+        d = await page.evaluate(_JS_HTML, {"maxChars": MAX_HTML_CHARS, "lvl": lvl})
+        if len(d["text"]) <= MAX_HTML_CHARS:
+            break
+    truncated = len(d["text"]) > MAX_HTML_CHARS
+    text, refs = d["text"], d["refs"]
+    if truncated:
+        cut = text[:MAX_HTML_CHARS]
+        cut = cut[:cut.rfind("<")] if "<" in cut else cut          # do not leave a half tag
+        text = cut + "<!-- truncated -->"
+        kept = set(re.findall(r'data-ref="(e\d+)"', cut))
+        refs = {k: v for k, v in refs.items() if k in kept}
+    return {"text": text, "refs": refs,
+            "stats": {"nodes": d["nodes"], "truncated": truncated, "level": lvl, "chars_full": d["chars"]}}
 
 
 async def _json_view(page: Any, route: dict[str, Any]) -> dict[str, Any]:

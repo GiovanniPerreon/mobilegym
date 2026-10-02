@@ -57,6 +57,15 @@ for (const el of document.querySelectorAll('*')) {
 return out;
 }"""
 
+# The 28 apps of the report = these 27 app ids + Launcher (no app id; AWAKE launcher == HOME).
+# mobile_gym.py knows 4 more ids (camera, phone, qqmusic, healthmonitor) that are not in the report and have no
+# test tasks: they are excluded from the AWAKE list and from the measurements.
+REPORT_APPS = (
+    "alipay", "answer_sheet", "bilibili", "browser", "calculator", "calculator2", "calendar", "clock", "compass",
+    "contacts", "ebay", "file_manager", "gallery", "map", "notes", "railway12306", "redbook", "reddit", "settings",
+    "sms", "spotify", "tencent_meeting", "theme_store", "weather", "wechat", "wechat_reading", "x",
+)
+
 _FIXED = [("BACK", "go back"), ("HOME", "go to home screen"), ("RECENT", "open recent apps"),
           ("ENTER", "press enter"), ("WAIT", "wait 2 seconds"), ("ANSWER", "answer the question"),
           ("COMPLETE", "task is complete"), ("ABORT", "give up")]

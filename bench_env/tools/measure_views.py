@@ -28,7 +28,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from bench_env.env.candidates import build_candidates
+from bench_env.env.candidates import REPORT_APPS, build_candidates
 from bench_env.env.text_view import FORMATS, extract_view  # noqa
 
 
@@ -62,7 +62,9 @@ async def measure_screen(page: Any, route: dict, apps: list[str], count) -> tupl
         ms = (time.perf_counter() - t) * 1000
         views[f] = v
         rows.append({"format": f, "chars": len(v["text"]), "tokens": count(v["text"]), "extract_ms": round(ms, 1),
-                     "screenshot_ms": round(shot_ms, 1), "refs": len(v["refs"]), "n_candidates": len(cands)})
+                     "screenshot_ms": round(shot_ms, 1), "refs": len(v["refs"]), "n_candidates": len(cands),
+                     "chars_full": v["stats"].get("chars_full", len(v["text"])),
+                     "html_level": v["stats"].get("level"), "html_truncated": v["stats"].get("truncated")})
     cov = coverage(cands, views["a11y"]["refs"])
     s = views["a11y"]["stats"]
     for r in rows:
@@ -78,7 +80,7 @@ async def main_async(a: argparse.Namespace) -> None:
     from bench_env.env.mobile_gym import MobileGymEnv
     rng = random.Random(a.seed)
     count, how = make_counter(a.tokenizer)
-    known = sorted(MobileGymEnv._KNOWN_APP_IDS)
+    known = sorted(a for a in MobileGymEnv._KNOWN_APP_IDS if a in REPORT_APPS)   # 27 ids of the report
     apps = known if a.apps == "all" else [x for x in a.apps.split(",") if x]
     awake = known if not a.awake_apps else [x for x in a.awake_apps.split(",") if x]
     env = MobileGymEnv(url=a.env_url, headless=True)
@@ -112,7 +114,7 @@ async def main_async(a: argparse.Namespace) -> None:
 
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     keys = ["app", "screen_idx", "path", "format", "chars", "tokens", "extract_ms", "screenshot_ms", "refs",
-            "n_candidates", "a11y_coverage", "a11y_named_share"]
+            "n_candidates", "a11y_coverage", "a11y_named_share", "chars_full", "html_level", "html_truncated"]
     with open(out / "views.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=keys); w.writeheader()
         for r in all_rows:
