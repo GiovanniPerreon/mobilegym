@@ -169,9 +169,12 @@ def create_parser() -> argparse.ArgumentParser:
 
     # Agent
     p.add_argument("--agent", choices=list_agents(), default="generic_v2")
-    p.add_argument("--obs", choices=["screenshot", "view"], default=None,
-                   help="Observation given to text agents: 'view' = text view of the screen "
-                        "(use with --agent generic_text). Default: screenshot (unchanged).")
+    p.add_argument("--obs", choices=["screenshot", "html", "a11y", "json"], default=None,
+                   help="Text observation format for --agent generic_text: html (visible HTML), "
+                        "a11y (accessibility tree), json (view JSON from data-trigger). "
+                        "Default: screenshot only (unchanged).")
+    p.add_argument("--obs-image", action="store_true",
+                   help="Hybrid format: also send the screenshot (with --agent generic_text and --obs).")
     p.add_argument("--model-base-url", type=str)
     p.add_argument("--model-api-key", type=str, default="")
     p.add_argument("--model-name", type=str)
@@ -404,8 +407,13 @@ def main(argv=None) -> int:
     # Observation mode is read by the env (also in shard subprocesses, which inherit env vars)
     if args.obs:
         os.environ["BENCH_OBS"] = args.obs
-    if args.agent == "generic_text" and os.environ.get("BENCH_OBS", "") != "view":
-        print("[ERROR] --agent generic_text requires --obs view")
+    if args.obs_image:
+        os.environ["BENCH_OBS_IMAGE"] = "1"
+    if args.agent == "generic_text" and os.environ.get("BENCH_OBS", "") not in ("html", "a11y", "json"):
+        print("[ERROR] --agent generic_text requires --obs html|a11y|json")
+        return 2
+    if args.agent != "generic_text" and os.environ.get("BENCH_OBS", "") in ("html", "a11y", "json"):
+        print("[ERROR] --obs html|a11y|json requires --agent generic_text")
         return 2
 
     configure_logging(quiet=args.quiet)

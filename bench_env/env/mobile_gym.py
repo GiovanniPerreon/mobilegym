@@ -992,10 +992,11 @@ class MobileGymEnv(BaseMobileEnv):
         else:
             state = {}
         text_view: dict[str, Any] = {}
-        if obs_mode() == "view":
+        fmt = obs_mode()
+        if fmt:
             with sw.phase("text_view"):
                 try:
-                    text_view = await extract_view(self.page)
+                    text_view = await extract_view(self.page, fmt, route)
                 except Exception as e:  # never break an episode because of the text view
                     logger.warning(f"text view extraction failed: {type(e).__name__}: {e}")
         return Observation(

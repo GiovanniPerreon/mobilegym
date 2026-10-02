@@ -1,129 +1,311 @@
-"""Text observation of the simulator screen (for text-only models).
+"""Text observation formats for MobileGym (HTML, accessibility tree, view JSON).
 
 Selected with env var BENCH_OBS (set by ``run.py --obs``):
-  ""/"screenshot"  default, nothing extracted (identical to the original benchmark)
-  "view"           compact list of visible text + interactive elements with refs and
-                   normalized (0-1000) boxes, read from the live DOM.
+  "" / "screenshot"  default: nothing extracted, benchmark unchanged
+  "html"             pruned HTML of the visible elements
+  "a11y"             browser accessibility tree (Chromium CDP), with refs
+  "json"             view JSON: app, screen, visible texts, transitions from data-trigger
 
-The view is built from the same page the screenshot comes from, so a text agent sees
-exactly what a visual agent sees (visible viewport only, same app state).
+Every format returns the same structure, stored in ``Observation.text_view``:
+  {"format": str, "text": str, "refs": {ref: [x1, y1, x2, y2]}, "stats": {...}}
+``refs`` maps each addressable element to its box in the 0-1000 coordinate space the
+environment already uses, so a ref can always be turned into a normal coordinate action.
+Only elements visible in the viewport are included (apps in the background stay in the
+DOM with display:none and are excluded by construction).
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from typing import Any
 
-MAX_ELEMENTS = int(os.environ.get("BENCH_OBS_MAX", "150"))
+FORMATS = ("html", "a11y", "json")
+MAX_HTML_CHARS = int(os.environ.get("BENCH_OBS_MAX_HTML", "60000"))
 
 
 def obs_mode() -> str:
     m = os.environ.get("BENCH_OBS", "").strip().lower()
-    return "" if m in ("", "screenshot") else m
+    return m if m in FORMATS else ""
 
 
-_JS = r"""
-(maxEl) => {
-  const W = window.innerWidth, H = window.innerHeight;
-  const norm = (r) => [Math.round(r.left / W * 1000), Math.round(r.top / H * 1000),
-                       Math.round(r.right / W * 1000), Math.round(r.bottom / H * 1000)];
-  const visible = (el, r) => {
-    if (r.width < 2 || r.height < 2) return false;
-    if (r.bottom <= 0 || r.right <= 0 || r.top >= H || r.left >= W) return false;
-    const cs = getComputedStyle(el);
-    if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) return false;
-    return true;
-  };
-  const SEL = '[data-trigger],[data-action],button,a[href],input,textarea,select,[role=button],[role=tab],[role=switch],[role=checkbox],[onclick]';
-  const clean = (s) => (s || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-  const label = (el) => clean(el.getAttribute('aria-label') || el.innerText || el.value ||
-                              el.getAttribute('placeholder') || el.getAttribute('title') || '');
-  const items = [];
-  const seen = new Set();
-  // interactive elements (skip ones fully covered by another element at their center)
-  for (const el of document.querySelectorAll(SEL)) {
-    const r = el.getBoundingClientRect();
-    if (!visible(el, r)) continue;
-    const cx = Math.min(W - 1, Math.max(0, (r.left + r.right) / 2));
-    const cy = Math.min(H - 1, Math.max(0, (r.top + r.bottom) / 2));
-    const top = document.elementFromPoint(cx, cy);
-    if (!top || !(el === top || el.contains(top) || top.contains(el))) continue;
-    const tag = el.tagName.toLowerCase();
-    const type = el.getAttribute('type');
-    const kind = (tag === 'input' || tag === 'textarea') ? 'input' :
-                 tag === 'select' ? 'select' :
-                 el.getAttribute('role') || (tag === 'a' ? 'link' : 'button');
-    const key = kind + '|' + label(el) + '|' + norm(r).join(',');
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const it = {k: kind, t: label(el), b: norm(r), y: r.top, x: r.left};
-    if (kind === 'input') { it.v = clean(el.value); if (type) it.type = type; }
-    if (el.getAttribute('aria-checked') != null) it.checked = el.getAttribute('aria-checked');
-    if (el.disabled) it.disabled = true;
-    items.push(it);
-  }
-  // plain visible text not already inside an interactive element
-  const texts = [];
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  let n;
-  while ((n = walker.nextNode())) {
-    const s = clean(n.nodeValue);
-    if (!s) continue;
-    const p = n.parentElement;
-    if (!p || ['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(p.tagName)) continue;
-    if (p.closest(SEL)) continue;
-    const range = document.createRange();
-    range.selectNodeContents(n);
-    const r = range.getBoundingClientRect();
-    if (!visible(p, r)) continue;
-    texts.push({k: 'text', t: s, b: norm(r), y: r.top, x: r.left});
-  }
-  const all = items.concat(texts).sort((a, b) => (Math.round(a.y / 8) - Math.round(b.y / 8)) || (a.x - b.x));
-  return {viewport: [W, H], n_total: all.length, items: all.slice(0, maxEl).map(({y, x, ...rest}) => rest)};
-}
+def obs_with_image() -> bool:
+    """Hybrid formats: screenshot + text."""
+    return os.environ.get("BENCH_OBS_IMAGE", "").strip() in ("1", "true", "yes")
+
+
+# ---------------------------------------------------------------- shared JS helpers
+_JS_COMMON = r"""
+const W = window.innerWidth, H = window.innerHeight;
+const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
+const clampBox = (r) => {
+  const l = Math.max(0, r.left), t = Math.max(0, r.top), rr = Math.min(W, r.right), b = Math.min(H, r.bottom);
+  return [Math.round(l / W * 1000), Math.round(t / H * 1000), Math.round(rr / W * 1000), Math.round(b / H * 1000)];
+};
+const inView = (r) => r.width >= 2 && r.height >= 2 && r.bottom > 0 && r.right > 0 && r.top < H && r.left < W;
+const shown = (el) => {
+  const cs = getComputedStyle(el);
+  return cs.display !== 'none' && cs.visibility !== 'hidden' && parseFloat(cs.opacity) !== 0;
+};
+const INTERACTIVE = '[data-trigger],[data-action],button,a[href],input,textarea,select,[role=button],[role=tab],[role=switch],[role=checkbox],[role=menuitem],[onclick]';
+const unoccluded = (el, r) => {
+  const cx = Math.min(W - 1, Math.max(0, (r.left + r.right) / 2));
+  const cy = Math.min(H - 1, Math.max(0, (r.top + r.bottom) / 2));
+  const top = document.elementFromPoint(cx, cy);
+  return !!top && (el === top || el.contains(top) || top.contains(el));
+};
+const label = (el) => clean(el.getAttribute('aria-label') || el.innerText || el.value ||
+                            el.getAttribute('placeholder') || el.getAttribute('title') || '').slice(0, 80);
 """
 
+# ---------------------------------------------------------------- HTML
+_JS_HTML = "(maxChars) => {" + _JS_COMMON + r"""
+const KEEP = ['id','class','role','type','name','placeholder','value','href','alt','title','for','checked','disabled',
+              'selected','data-trigger','data-trigger-type','data-trigger-params','data-action','data-action-type',
+              'data-action-params'];
+const DROP_TAGS = new Set(['script','style','noscript','template','link','meta','head','title']);
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const refs = {};
+let n = 0, nodes = 0;
+function ser(node) {
+  if (node.nodeType === 3) { const t = clean(node.nodeValue); return t ? esc(t) : ''; }
+  if (node.nodeType !== 1) return '';
+  const tag = node.tagName.toLowerCase();
+  if (DROP_TAGS.has(tag)) return '';
+  if (!shown(node)) return '';
+  const r = node.getBoundingClientRect();
+  if (r.width > 0 && r.height > 0 && !inView(r)) return '';   // fully outside the viewport
+  if (tag === 'svg') return '<svg/>';
+  let attrs = '';
+  for (const k of KEEP) {
+    let v = node.getAttribute(k);
+    if (v == null) continue;
+    if (k === 'class') v = v.split(/\s+/).slice(0, 4).join(' ');
+    if (v.length > 120) v = v.slice(0, 120) + '…';
+    attrs += ` ${k}="${v.replace(/"/g, '&quot;')}"`;
+  }
+  if ((tag === 'input' || tag === 'textarea') && node.value && node.getAttribute('value') == null)
+    attrs += ` value="${node.value.replace(/"/g, '&quot;').slice(0, 120)}"`;
+  if (node.matches(INTERACTIVE) && inView(r) && unoccluded(node, r)) {
+    n += 1; const ref = 'e' + n;
+    refs[ref] = clampBox(r);
+    attrs += ` data-ref="${ref}"`;
+  }
+  let inner = '';
+  for (const c of node.childNodes) inner += ser(c);
+  if (tag === 'img') return `<img${attrs}>`;
+  if (!attrs && (tag === 'div' || tag === 'span')) return inner;   // pure wrappers add nothing
+  if (!inner && !attrs) return '';
+  nodes += 1;
+  return `<${tag}${attrs}>${inner}</${tag}>`;
+}
+let html = ser(document.body);
+const truncated = html.length > maxChars;
+if (truncated) html = html.slice(0, maxChars);
+return {text: html, refs, truncated, nodes};
+}"""
 
-async def extract_view(page: Any) -> dict[str, Any]:
-    """Return {"items": [...]} for the current page; refs (e1..) are added here."""
-    data = await page.evaluate(_JS, MAX_ELEMENTS)
-    n = 0
-    for it in data["items"]:
-        if it["k"] != "text":
-            n += 1
-            it["ref"] = f"e{n}"
-    return data
+# ---------------------------------------------------------------- JSON of the view
+_JS_JSON = "() => {" + _JS_COMMON + r"""
+const texts = [];
+const seen = new Set();
+const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+let nd;
+while ((nd = walker.nextNode())) {
+  const s = clean(nd.nodeValue);
+  if (!s) continue;
+  const p = nd.parentElement;
+  if (!p || ['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(p.tagName)) continue;
+  const range = document.createRange(); range.selectNodeContents(nd);
+  const r = range.getBoundingClientRect();
+  if (!inView(r)) continue;
+  let ok = true;
+  for (let e = p; e && e !== document.body; e = e.parentElement) if (!shown(e)) { ok = false; break; }
+  if (!ok) continue;
+  texts.push({s: s.slice(0, 120), y: r.top, x: r.left});
+}
+texts.sort((a, b) => (Math.round(a.y / 8) - Math.round(b.y / 8)) || (a.x - b.x));
+const visible_texts = [];
+for (const t of texts) { if (!seen.has(t.s)) { seen.add(t.s); visible_texts.push(t.s); } }
+
+const transitions = [], fields = [], refs = {};
+let ti = 0, fi = 0;
+for (const el of document.querySelectorAll('[data-trigger],[data-action],input,textarea,select')) {
+  const r = el.getBoundingClientRect();
+  if (!inView(r)) continue;
+  let ok = true;
+  for (let e = el; e && e !== document.body; e = e.parentElement) if (!shown(e)) { ok = false; break; }
+  if (!ok || !unoccluded(el, r)) continue;
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+    fi += 1; const ref = 'f' + fi; refs[ref] = clampBox(r);
+    fields.push({ref, tipo: el.getAttribute('type') || tag, placeholder: el.getAttribute('placeholder') || null,
+                 valore: clean(el.value) || null});
+    continue;
+  }
+  const name = el.getAttribute('data-trigger') || el.getAttribute('data-action');
+  let params = {};
+  try { params = JSON.parse(el.getAttribute('data-trigger-params') || el.getAttribute('data-action-params') || '{}'); } catch (e) {}
+  ti += 1; const ref = 't' + ti; refs[ref] = clampBox(r);
+  transitions.push({ref, nome: name, parametri: params, testo: label(el) || null});
+}
+return {visible_texts, transitions, fields, refs};
+}"""
 
 
-def format_view(data: dict[str, Any]) -> str:
-    """Compact text for the prompt. Interactive elements carry a ref and a box."""
-    lines = []
-    for it in data["items"]:
-        if it["k"] == "text":
-            lines.append(f'text "{it["t"]}"')
-            continue
-        extra = ""
-        if "v" in it:
-            extra += f' value="{it["v"]}"'
-        if "checked" in it:
-            extra += f' checked={it["checked"]}'
-        if it.get("disabled"):
-            extra += " disabled"
-        lines.append(f'[{it["ref"]}] {it["k"]} "{it["t"]}"{extra} box={it["b"]}')
-    if data.get("n_total", 0) > len(data["items"]):
-        lines.append(f'... ({data["n_total"] - len(data["items"])} more elements not shown)')
-    return "\n".join(lines)
+async def _html(page: Any) -> dict[str, Any]:
+    d = await page.evaluate(_JS_HTML, MAX_HTML_CHARS)
+    return {"text": d["text"], "refs": d["refs"],
+            "stats": {"nodes": d["nodes"], "truncated": d["truncated"]}}
 
 
-def refs_to_points(data: dict[str, Any]) -> dict[str, list[int]]:
-    """ref -> center point in the 0-1000 coordinate space used by the env."""
-    out = {}
-    for it in data["items"]:
-        if "ref" in it:
-            x1, y1, x2, y2 = it["b"]
-            out[it["ref"]] = [(x1 + x2) // 2, (y1 + y2) // 2]
-    return out
+async def _json_view(page: Any, route: dict[str, Any]) -> dict[str, Any]:
+    d = await page.evaluate(_JS_JSON)
+    view = {
+        "app": str(route.get("app") or ""),
+        "schermata": str(route.get("path") or ""),
+        "testi_visibili": d["visible_texts"],
+        "transizioni": d["transitions"],
+    }
+    if d["fields"]:
+        view["campi_input"] = d["fields"]   # extra vs. the report example: needed to address TYPE
+    return {"text": json.dumps(view, ensure_ascii=False, indent=1), "refs": d["refs"],
+            "stats": {"transizioni": len(d["transitions"]), "testi": len(d["visible_texts"]),
+                      "campi": len(d["fields"])}}
 
 
-def view_to_json(data: dict[str, Any]) -> str:
-    return json.dumps(data, ensure_ascii=False)
+# ---------------------------------------------------------------- accessibility tree (CDP)
+_INTERACTIVE_ROLES = {"button", "link", "textbox", "searchbox", "combobox", "checkbox", "radio", "switch",
+                      "tab", "menuitem", "menuitemcheckbox", "menuitemradio", "slider", "spinbutton",
+                      "option", "treeitem", "listbox", "textarea", "togglebutton"}
+_SKIP_ROLES = {"none", "presentation", "generic", "InlineTextBox", "LineBreak", "RootWebArea",
+               "WebArea", "ignored", "Section", "Div"}
+_SHOWN_PROPS = ("checked", "selected", "expanded", "disabled", "pressed", "focused", "required")
+
+
+def _ax_val(x: Any) -> Any:
+    return x.get("value") if isinstance(x, dict) else None
+
+
+async def _a11y(page: Any) -> dict[str, Any]:
+    vw, vh = await page.evaluate("[window.innerWidth, window.innerHeight]")
+    cdp = await page.context.new_cdp_session(page)
+    try:
+        await cdp.send("DOM.enable")
+        await cdp.send("Accessibility.enable")
+        await cdp.send("DOM.getDocument", {"depth": 0})
+        tree = await cdp.send("Accessibility.getFullAXTree")
+        nodes = {n["nodeId"]: n for n in tree["nodes"]}
+
+        # boxes for every node that could be printed
+        async def box(n: dict) -> tuple[str, list | None]:
+            bid = n.get("backendDOMNodeId")
+            if bid is None:
+                return n["nodeId"], None
+            try:
+                m = await cdp.send("DOM.getBoxModel", {"backendNodeId": bid})
+                q = m["model"]["border"]
+                xs, ys = q[0::2], q[1::2]
+                return n["nodeId"], [min(xs), min(ys), max(xs), max(ys)]
+            except Exception:
+                return n["nodeId"], None
+
+        cand = [n for n in tree["nodes"] if not n.get("ignored")
+                and _ax_val(n.get("role")) not in _SKIP_ROLES]
+        boxes = dict(await asyncio.gather(*(box(n) for n in cand)))
+    finally:
+        try:
+            await cdp.detach()
+        except Exception:
+            pass
+
+    def on_screen(b: list | None) -> bool:
+        return b is not None and (b[2] - b[0]) >= 2 and (b[3] - b[1]) >= 2 \
+            and b[2] > 0 and b[3] > 0 and b[0] < vw and b[1] < vh
+
+    lines: list[str] = []
+    refs: dict[str, list[int]] = {}
+    counter = {"n": 0, "named": 0, "interactive": 0}
+
+    def norm(b: list) -> list[int]:
+        l, t, r, bt = max(0, b[0]), max(0, b[1]), min(vw, b[2]), min(vh, b[3])
+        return [round(l / vw * 1000), round(t / vh * 1000), round(r / vw * 1000), round(bt / vh * 1000)]
+
+    def walk(nid: str, depth: int, parent_name: str) -> None:
+        n = nodes.get(nid)
+        if n is None:
+            return
+        role = _ax_val(n.get("role")) or ""
+        name = clean_name(_ax_val(n.get("name")))
+        props = {p["name"]: _ax_val(p.get("value")) for p in n.get("properties", [])}
+        children = n.get("childIds", [])
+        if n.get("ignored") or role in _SKIP_ROLES:
+            for c in children:
+                walk(c, depth, parent_name)
+            return
+        b = boxes.get(nid)
+        if not on_screen(b):
+            return
+        if role == "StaticText":
+            if name and name not in parent_name:
+                lines.append("  " * depth + f'- text "{name}"')
+            return
+        interactive = role in _INTERACTIVE_ROLES
+        head = f"- {role}" + (f' "{name}"' if name else "")
+        if interactive:
+            counter["n"] += 1
+            counter["interactive"] += 1
+            if name:
+                counter["named"] += 1
+            ref = f"e{counter['n']}"
+            refs[ref] = norm(b)
+            head += f" [ref={ref}]"
+        for k in _SHOWN_PROPS:
+            if props.get(k) not in (None, False, "false"):
+                head += f" [{k}]" if props[k] in (True, "true") else f" [{k}={props[k]}]"
+        val = _ax_val(n.get("value"))
+        if val not in (None, ""):
+            head += f': "{val}"'
+        lines.append("  " * depth + head)
+        for c in children:
+            walk(c, depth + 1, name)
+
+    def clean_name(s: Any) -> str:
+        return " ".join(str(s or "").split())[:100]
+
+    roots = [n["nodeId"] for n in tree["nodes"] if "parentId" not in n]
+    for r in roots:
+        walk(r, 0, "")
+    return {"text": "\n".join(lines), "refs": refs,
+            "stats": {"interactive": counter["interactive"], "interactive_named": counter["named"]}}
+
+
+# ---------------------------------------------------------------- public API
+async def extract_view(page: Any, fmt: str, route: dict[str, Any] | None = None) -> dict[str, Any]:
+    if fmt == "html":
+        d = await _html(page)
+    elif fmt == "a11y":
+        d = await _a11y(page)
+    elif fmt == "json":
+        d = await _json_view(page, route or {})
+    else:
+        raise ValueError(f"unknown text format: {fmt}")
+    d["format"] = fmt
+    d["stats"]["chars"] = len(d["text"])
+    d["stats"]["refs"] = len(d["refs"])
+    return d
+
+
+def ref_point(box: list[int]) -> list[int]:
+    return [(box[0] + box[2]) // 2, (box[1] + box[3]) // 2]
+
+
+def swipe_points(box: list[int], direction: str) -> tuple[list[int], list[int]] | None:
+    """Finger path inside the element's box; direction = direction the finger moves."""
+    cx, cy = ref_point(box)
+    w, h = box[2] - box[0], box[3] - box[1]
+    dx, dy = int(w * 0.35), int(h * 0.35)
+    d = (direction or "").strip().lower()
+    table = {"up": ([cx, cy + dy], [cx, cy - dy]), "down": ([cx, cy - dy], [cx, cy + dy]),
+             "left": ([cx + dx, cy], [cx - dx, cy]), "right": ([cx - dx, cy], [cx + dx, cy])}
+    return table.get(d)

@@ -1,0 +1,22 @@
+# Pilot (thesis, week 1): 20 L2 tasks sampled from the test split with random.Random(0).
+# Together with ALL L1 tasks of the test split (--split test --filter-difficulty L1) they make the 40-task pilot.
+bilibili.SanlianTask
+bilibili.UnfollowAndClearHistoryTask
+calendar.DateCalcForward
+clock.AddCityAndCompareTimeDiff
+crossapp_life.WeatherFilterNonRainyDays
+railway12306.OpenInvoice
+redbook.CheckFirstChatLastMessage
+reddit.Reddit_AdvancedPrivacyToggles
+reddit.Reddit_DisableCommunityThemes
+spotify.DiscoverSaveAndReport
+spotify.QueueAndLikeSong
+spotify.SearchBuildPlaylistAndPlay
+spotify.SetSleepTimer
+tencent_meeting.CalculateTotalMeetingDuration
+tencent_meeting.ToggleNotification
+weather.AddCityAndFindWarmestDay
+weather.SwitchUnitAndReport
+wechat.ConditionalReplyToBoss
+wechat.PostMomentsTextWithCity
+wechat.SetMomentsVisibleRange
