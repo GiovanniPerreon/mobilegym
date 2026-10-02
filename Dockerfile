@@ -1,63 +1,46 @@
-# ---- Builder stage ----
-FROM node:22-slim AS builder
+# All-in-one: llama.cpp server (CUDA) + MobileGym simulator (from your fork) + harness + Chromium.
+# Base = official llama.cpp CUDA server image (has llama-server + CUDA libs). Pin a tag if you want reproducibility.
+ARG LLAMA_IMAGE=ghcr.io/ggml-org/llama.cpp:server-cuda
+FROM ${LLAMA_IMAGE}
 
-RUN apt-get update && apt-get install -y \
-    python3.11 python3-pip python3.11-venv \
-    curl git wget \
-    libglib2.0-0 libnss3 libnspr4 libatk-bridge2.0-0 \
-    libdrm2 libxkbcommon0 libgbm1 libasound2 \
-    && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common curl ca-certificates git gnupg wget && \
+    add-apt-repository -y ppa:deadsnakes/ppa && apt-get update && \
+    apt-get install -y --no-install-recommends python3.11 python3.11-venv python3.11-dev && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/bin/python3 /usr/bin/python
+WORKDIR /bench
 
-WORKDIR /app
-
-RUN git clone https://github.com/GiovanniPerreon/mobilegym.git . \
-    && git checkout main
+# Change CACHEBUST (or build with --no-cache) to re-clone after you push to the fork.
+ARG REPO_URL=https://github.com/GiovanniPerreon/mobilegym.git
+ARG REPO_REF=main
+ARG CACHEBUST=1
+RUN git clone ${REPO_URL} . && git checkout ${REPO_REF}
 
 RUN npm ci
 
-RUN curl -L -o mobilegym-data.tar.gz \
+RUN curl -fL -o mobilegym-data.tar.gz \
       https://github.com/Purewhiter/mobilegym/releases/download/data-v1.0/mobilegym-data-v1.tar.gz \
-    && tar -xzf mobilegym-data.tar.gz \
-    && rm mobilegym-data.tar.gz
+    && tar -xzf mobilegym-data.tar.gz && rm mobilegym-data.tar.gz
 
 RUN npm run build
 
-RUN python -m venv /venv
+RUN python3.11 -m venv /venv
 ENV PATH="/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r bench_env/requirements.txt
-RUN pip install requests
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r bench_env/requirements.txt requests
 
-RUN npx playwright install chromium
+# Chromium + system libs (shared by Node and Python Playwright)
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npx playwright install --with-deps chromium && \
+    (command -v playwright >/dev/null && playwright install chromium || true) && \
+    rm -rf /var/lib/apt/lists/*
 
-# ---- Final stage ----
-FROM node:22-slim
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-RUN apt-get update && apt-get install -y \
-    python3.11 \
-    libglib2.0-0 libnss3 libnspr4 libatk-bridge2.0-0 \
-    libdrm2 libxkbcommon0 libgbm1 libasound2 \
-    libcups2 \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/bin/python3 /usr/bin/python
-
-WORKDIR /app
-
-COPY --from=builder /app/package*.json ./
-RUN npm ci
-
-COPY --from=builder /app/dist /app/dist
-COPY --from=builder /app/bench_env /app/bench_env
-COPY --from=builder /app/mobilegym-data /app/mobilegym-data
-COPY --from=builder /app/apps /app/apps
-COPY --from=builder /app/system /app/system
-COPY --from=builder /venv /venv
-ENV PATH="/venv/bin:$PATH"
-COPY --from=builder /root/.cache/ms-playwright /root/.cache/ms-playwright
-
-EXPOSE 4173
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
+ENV LLAMA_CACHE=/cache OUT_DIR=/out
+ENTRYPOINT ["/entrypoint.sh"]
