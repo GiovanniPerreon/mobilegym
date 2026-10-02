@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from bench_env.env.text_view import _JS_COMMON, ref_point
+from bench_env.env.text_view import _JS_COMMON, ref_point, swipe_points
 
 _JS = "() => {" + _JS_COMMON + r"""
 const out = {elements: [], scrollers: []};
@@ -62,14 +62,6 @@ _FIXED = [("BACK", "go back"), ("HOME", "go to home screen"), ("RECENT", "open r
           ("COMPLETE", "task is complete"), ("ABORT", "give up")]
 
 
-def _swipe(box: list[int], d: str) -> tuple[list[int], list[int]]:
-    cx, cy = ref_point(box)
-    w, h = box[2] - box[0], box[3] - box[1]
-    dx, dy = int(w * 0.35), int(h * 0.35)
-    return {"up": ([cx, cy + dy], [cx, cy - dy]), "down": ([cx, cy - dy], [cx, cy + dy]),
-            "left": ([cx + dx, cy], [cx - dx, cy]), "right": ([cx - dx, cy], [cx + dx, cy])}[d]
-
-
 async def build_candidates(page: Any, apps: Sequence[str] = ()) -> list[dict[str, Any]]:
     raw = await page.evaluate(_JS)
     cands: list[dict[str, Any]] = []
@@ -90,7 +82,7 @@ async def build_candidates(page: Any, apps: Sequence[str] = ()) -> list[dict[str
     for s in raw["scrollers"]:
         for d in ("up", "down", "left", "right"):
             if s[d]:
-                p1, p2 = _swipe(s["box"], d)
+                p1, p2 = swipe_points(s["box"], d)  # d is always a valid direction here
                 add("SWIPE", f'swipe {d}: {s["label"]}', point1=p1, point2=p2)
     for a in apps:
         add("AWAKE", f"open app: {a}", value=a)

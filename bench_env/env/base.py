@@ -166,7 +166,8 @@ class Observation:
     step_idx: int = 0
     screenshot: Optional[Any] = None  # Optional numpy array
     screenshot_bytes: bytes = b""
-    # Text view of the screen (only filled when BENCH_OBS=view; see env/text_view.py)
+    # Text view of the screen: {format, text, refs, stats}. Only filled when BENCH_OBS is
+    # html|a11y|json (see env/text_view.py); empty in the default screenshot setting.
     text_view: dict[str, Any] = field(default_factory=dict)
 
     def get_screenshot_bytes(self) -> bytes:

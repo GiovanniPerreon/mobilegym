@@ -29,7 +29,7 @@ def _swap(s: str, old: str, new: str) -> str:
 _FORMAT_HELP = {
     "html": """The screen is described as the HTML of the visible elements. Interactive elements carry a data-ref="eN" attribute; use that id as ref.""",
     "a11y": """The screen is described as the accessibility tree of the visible elements (role, name, state). Interactive elements carry [ref=eN]; use that id as ref.""",
-    "json": """The screen is described as a JSON object: app, screen (route path), visible texts, available transitions and input fields. Each transition ("transizioni": ref t1, t2, ... with its name, parameters and text) and each input field ("campi_input": ref f1, f2, ...) can be used as ref.""",
+    "json": """The screen is described as a JSON object: "app", "screen" (route path), "visible_texts", "transitions" (the actions available on this screen) and "input_fields". Each transition (ref t1, t2, ... with its "name", "params" and "text") and each input field (ref f1, f2, ...) can be used as ref.""",
 }
 
 _REF_SYNTAX = """

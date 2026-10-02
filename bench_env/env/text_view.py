@@ -4,7 +4,7 @@ Selected with env var BENCH_OBS (set by ``run.py --obs``):
   "" / "screenshot"  default: nothing extracted, benchmark unchanged
   "html"             pruned HTML of the visible elements
   "a11y"             browser accessibility tree (Chromium CDP), with refs
-  "json"             view JSON: app, screen, visible texts, transitions from data-trigger
+  "json"             view JSON: app, screen (route path), visible texts, transitions from data-trigger
 
 Every format returns the same structure, stored in ``Observation.text_view``:
   {"format": str, "text": str, "refs": {ref: [x1, y1, x2, y2]}, "stats": {...}}
@@ -139,15 +139,15 @@ for (const el of document.querySelectorAll('[data-trigger],[data-action],input,t
   const tag = el.tagName.toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select') {
     fi += 1; const ref = 'f' + fi; refs[ref] = clampBox(r);
-    fields.push({ref, tipo: el.getAttribute('type') || tag, placeholder: el.getAttribute('placeholder') || null,
-                 valore: clean(el.value) || null});
+    fields.push({ref, type: el.getAttribute('type') || tag, placeholder: el.getAttribute('placeholder') || null,
+                 value: clean(el.value) || null});
     continue;
   }
   const name = el.getAttribute('data-trigger') || el.getAttribute('data-action');
   let params = {};
   try { params = JSON.parse(el.getAttribute('data-trigger-params') || el.getAttribute('data-action-params') || '{}'); } catch (e) {}
   ti += 1; const ref = 't' + ti; refs[ref] = clampBox(r);
-  transitions.push({ref, nome: name, parametri: params, testo: label(el) || null});
+  transitions.push({ref, name: name, params: params, text: label(el) || null});
 }
 return {visible_texts, transitions, fields, refs};
 }"""
@@ -163,15 +163,15 @@ async def _json_view(page: Any, route: dict[str, Any]) -> dict[str, Any]:
     d = await page.evaluate(_JS_JSON)
     view = {
         "app": str(route.get("app") or ""),
-        "schermata": str(route.get("path") or ""),
-        "testi_visibili": d["visible_texts"],
-        "transizioni": d["transitions"],
+        "screen": str(route.get("path") or ""),
+        "visible_texts": d["visible_texts"],
+        "transitions": d["transitions"],
     }
     if d["fields"]:
-        view["campi_input"] = d["fields"]   # extra vs. the report example: needed to address TYPE
+        view["input_fields"] = d["fields"]   # extra vs. the report example: needed to address TYPE
     return {"text": json.dumps(view, ensure_ascii=False, indent=1), "refs": d["refs"],
-            "stats": {"transizioni": len(d["transitions"]), "testi": len(d["visible_texts"]),
-                      "campi": len(d["fields"])}}
+            "stats": {"transitions": len(d["transitions"]), "texts": len(d["visible_texts"]),
+                      "fields": len(d["fields"])}}
 
 
 # ---------------------------------------------------------------- accessibility tree (CDP)
