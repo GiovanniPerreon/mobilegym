@@ -16,6 +16,7 @@ from typing import Any, Optional, Tuple
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
 
 from bench_env.logger import get_logger
+from bench_env.env.text_view import extract_view, obs_mode
 from bench_env.env.base import Action, ActionType, BaseMobileEnv, Observation, StepResult
 from bench_env.task import TaskRegistry, JudgeInput, JudgeResult, BaseTask
 
@@ -990,11 +991,19 @@ class MobileGymEnv(BaseMobileEnv):
                 state = await self._get_state() or {}
         else:
             state = {}
+        text_view: dict[str, Any] = {}
+        if obs_mode() == "view":
+            with sw.phase("text_view"):
+                try:
+                    text_view = await extract_view(self.page)
+                except Exception as e:  # never break an episode because of the text view
+                    logger.warning(f"text view extraction failed: {type(e).__name__}: {e}")
         return Observation(
             screenshot_bytes=screenshot_bytes,
             route=route,
             state=state,
             step_idx=self._step_count,
+            text_view=text_view,
         )
 
     def register_handler(self, action_type: ActionType, handler_cls: type[ActionHandler]) -> None:

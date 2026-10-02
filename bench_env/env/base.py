@@ -166,6 +166,8 @@ class Observation:
     step_idx: int = 0
     screenshot: Optional[Any] = None  # Optional numpy array
     screenshot_bytes: bytes = b""
+    # Text view of the screen (only filled when BENCH_OBS=view; see env/text_view.py)
+    text_view: dict[str, Any] = field(default_factory=dict)
 
     def get_screenshot_bytes(self) -> bytes:
         """Prefer raw bytes; fallback decode screenshot_base64."""

@@ -169,6 +169,9 @@ def create_parser() -> argparse.ArgumentParser:
 
     # Agent
     p.add_argument("--agent", choices=list_agents(), default="generic_v2")
+    p.add_argument("--obs", choices=["screenshot", "view"], default=None,
+                   help="Observation given to text agents: 'view' = text view of the screen "
+                        "(use with --agent generic_text). Default: screenshot (unchanged).")
     p.add_argument("--model-base-url", type=str)
     p.add_argument("--model-api-key", type=str, default="")
     p.add_argument("--model-name", type=str)
@@ -398,7 +401,13 @@ async def async_main(args) -> int:
 
 def main(argv=None) -> int:
     args = create_parser().parse_args(argv)
-    
+    # Observation mode is read by the env (also in shard subprocesses, which inherit env vars)
+    if args.obs:
+        os.environ["BENCH_OBS"] = args.obs
+    if args.agent == "generic_text" and os.environ.get("BENCH_OBS", "") != "view":
+        print("[ERROR] --agent generic_text requires --obs view")
+        return 2
+
     configure_logging(quiet=args.quiet)
 
     try:
