@@ -1,6 +1,6 @@
 {
   "settings": {
-    "language": "zh",
+    "language": "en",
     "timer": "off",
     "sleepReminder": false,
     "recommend": {
@@ -97,32 +97,32 @@
     "followers": 1,
     "dynamic": 0,
     "isVip": false,
-    "sex": "保密",
+    "sex": "Confidential",
     "birthday": "",
-    "sign": "这是我的签名",
-    "school": "中国科学院大学",
-    "ipLocation": "北京",
+    "sign": "This is my signature",
+    "school": "University of Chinese Academy of Sciences",
+    "ipLocation": "Beijing",
     "uid": "800000000000",
     "followingList": [
       {
         "mid": "800000025938",
-        "name": "铁壁观察",
+        "name": "Iron Wall Observer",
         "face": "./images/avatars/mid_800000025938.jpg",
-        "sign": "关注社会动态与历史人文，偶尔分享生活随想。"
+        "sign": "Pay attention to social dynamics and history, occasionally share random thoughts on life."
       },
       {
         "mid": "800000019727",
-        "name": "小白工坊志",
+        "name": "Xiaobai Workshop Journal",
         "face": "./images/avatars/mid_800000019727.jpg",
-        "sign": "记录生活中的创意瞬间，分享科技与人文的碰撞"
+        "sign": "Record creative moments in life, share the collision of technology and humanities."
       }
     ],
     "followersList": [
       {
         "mid": "800000000001",
-        "name": "星流笔记",
+        "name": "Star Flow Notes",
         "face": "./images/avatars/mid_800000000001.jpg",
-        "sign": "专注探索宇宙深处的未解之谜，分享硬核天文知识与浪漫星空摄影",
+        "sign": "Focus on exploring unsolved mysteries of the deep universe, share hardcore astronomical knowledge and romantic starry sky photography.",
         "isVip": false
       }
     ],
@@ -134,7 +134,7 @@
     "favoritesFolders": [
       {
         "id": "fav_default",
-        "title": "默认收藏夹",
+        "title": "Default Favorites",
         "isPublic": false,
         "videoIds": [
           "BVmg00006148",
@@ -147,7 +147,7 @@
       },
       {
         "id": "fav_test3",
-        "title": "科技数码",
+        "title": "Tech & Digital",
         "isPublic": true,
         "videoIds": [
           "BVmg00009359",
@@ -156,13 +156,13 @@
       },
       {
         "id": "fav_test",
-        "title": "学习",
+        "title": "Learning",
         "isPublic": true,
         "videoIds": []
       },
       {
         "id": "fav_safe",
-        "title": "人工智能",
+        "title": "Artificial Intelligence",
         "isPublic": false,
         "videoIds": [
           "BVmg00001257",
@@ -173,17 +173,17 @@
     "subscribedAnime": [
       {
         "id": "BVmg00000086",
-        "title": "凡人修仙传"
+        "title": "A Mortal's Journey to Immortality"
       },
       {
         "id": "BVmg00000218",
-        "title": "熊出没"
+        "title": "Boonie Bears"
       }
     ],
     "subscribedDramas": [],
     "searchHistory": [
-      "凡人修仙传",
-      "熊出没"
+      "A Mortal's Journey to Immortality",
+      "Boonie Bears"
     ]
   }
 }

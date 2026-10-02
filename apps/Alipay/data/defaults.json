@@ -9,7 +9,7 @@
     "total": 100023.46,
     "dailyIncome": 9.99
   },
-  "language": "zh-CN",
+  "language": null,
   "settings": {
     "visualRefreshEnabled": true,
     "payment": {

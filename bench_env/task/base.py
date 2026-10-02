@@ -358,6 +358,7 @@ class BaseTask(ABC):
             )
             idx = 0
         tpl = self.templates[idx]
+        tpl_is_chinese = any("一" <= ch <= "鿿" for ch in tpl)
         render_params: dict[str, Any] = {}
         for k, v in self.params.items():
             schema = self.parameters.get(k, {})
@@ -369,7 +370,10 @@ class BaseTask(ABC):
             if display is not None:
                 render_params[k] = self._apply_display(k, v, display)
             elif isinstance(v, bool):
-                render_params[k] = "开启" if v else "关闭"
+                if tpl_is_chinese:
+                    render_params[k] = "开启" if v else "关闭"
+                else:
+                    render_params[k] = "on" if v else "off"
             else:
                 render_params[k] = v
         try:

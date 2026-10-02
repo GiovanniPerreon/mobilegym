@@ -48,7 +48,7 @@ export const ScanPage: React.FC = () => {
 
       {/* 提示文案：仅比我的二维码/相册高一点 */}
       <p className="text-white text-(--app-settings-group-title-size) text-center pb-2 bg-(--app-c-misc-moments-cover-bg)">
-        识别二维码  /  花草  /  动物  /  商品等
+        Recognize QR code / plants / animals / products etc.
       </p>
 
       {/* 底部：我的二维码靠左、相册靠右 */}
@@ -61,7 +61,7 @@ export const ScanPage: React.FC = () => {
           <div className="w-11 h-11 rounded-full bg-app-surface/40 flex items-center justify-center">
             <IcQrCode size={dimens.icSizePlusMenu} className="text-white/70" strokeWidth={1.5} />
           </div>
-          <span className="text-(--app-chat-system-msg-text-size) text-white">我的二维码</span>
+          <span className="text-(--app-chat-system-msg-text-size) text-white">My QR Code</span>
         </button>
         <button
           type="button"
@@ -82,7 +82,7 @@ export const ScanPage: React.FC = () => {
           <div className="mt-1 w-1.5 h-1.5 bg-app-surface rounded-full" />
         </div>
         {/* 翻译 Tab (右侧) */}
-        <span className="text-(--app-settings-group-title-size) text-(--app-c-search-empty-text) absolute right-28">翻译</span>
+        <span className="text-(--app-settings-group-title-size) text-(--app-c-search-empty-text) absolute right-28">Translate</span>
       </div>
     </div>
   );

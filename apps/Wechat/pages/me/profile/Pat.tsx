@@ -22,11 +22,11 @@ export const PatPage = () => {
 
     return (
         <div className="min-h-full bg-app-surface flex flex-col relative">
-             <div className="text-center text-(--app-item-text-size-22) font-bold text-app-text mt-16 mb-12">设置拍一拍</div>
+             <div className="text-center text-(--app-item-text-size-22) font-bold text-app-text mt-16 mb-12">Set Poke</div>
              
              <div className="border-t border-(--app-c-tw-border-gray-100)">
                 <div className="flex items-center px-8 py-5 border-b border-(--app-c-tw-border-gray-100)">
-                    <span className="text-(--app-settings-item-text-size) text-app-text mr-2 font-normal">朋友拍了拍我</span>
+                    <span className="text-(--app-settings-item-text-size) text-app-text mr-2 font-normal">Friends poke me</span>
                     <input 
                         type="text" 
                         value={pat}
@@ -38,7 +38,7 @@ export const PatPage = () => {
              </div>
 
              <div className="px-8 mt-5 text-(--app-c-settings-item-chevron) text-(--app-search-filter-text-size)">
-                朋友拍你的时侯将出现
+                This will appear when a friend pokes you
              </div>
             
              <div className="mt-auto mb-20 flex justify-center w-full">

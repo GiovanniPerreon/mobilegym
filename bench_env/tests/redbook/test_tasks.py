@@ -555,7 +555,7 @@ class TestRedbookAccessor:
         assert redbook.user_id == "xiaoming"
         assert redbook.user_name == "小明"
         assert redbook.general_settings["mobileNetwork"] is True
-        assert redbook.settings["language"] == "zh-CN"
+        assert redbook.settings["language"] is None
         # Seed runtime-only notes (defaults.notes.note_0/note_1) sit at the front of
         # `feed_ids` (createdAt desc, before any base-feed entry). Note: these seeds
         # don't carry a `category`, so HomePage 推荐 tab filters them out in the UI —
