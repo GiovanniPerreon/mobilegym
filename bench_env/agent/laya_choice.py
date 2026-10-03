@@ -29,6 +29,7 @@ yet: _LayaBackend is the only place to adapt if its output differs.
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Optional
 
 from bench_env.agent.base import AgentConfig
@@ -56,6 +57,7 @@ _DESCRIPTIONS = {
     "COMPLETE": "finish the task because it is done",
     "ABORT": "stop because the task cannot be done",
 }
+_NUM_PREFIX = re.compile(r"^\d+\.\s*")   # list number at the start of a recorded action
 _PROB_KEYS = ("probs", "probabilities", "scores", "distribution")
 _CONF_KEYS = ("confidence", "probability", "prob", "score")
 
@@ -161,8 +163,10 @@ class LayaChoiceAgent(GenericChoiceAgent):
         lines = [f"[Task]\n{self._task}"]
         recent = self._history[-_HISTORY_STEPS:]
         if recent:
+            # the list numbers change at every step: keep only the action text, numbered by step
             lines.append("[Previous actions]\n" + "\n".join(
-                f"{len(self._history) - len(recent) + i + 1}. {r.llm_response}" for i, r in enumerate(recent)))
+                f"{len(self._history) - len(recent) + i + 1}. {_NUM_PREFIX.sub('', r.llm_response)}"
+                for i, r in enumerate(recent)))
         return "\n\n".join(lines)
 
     def _decide(self, obs: Observation, messages: list[dict], n: int

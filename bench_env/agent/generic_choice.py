@@ -60,6 +60,7 @@ Requirements:
 - Choose "task is complete" only to end the task, after you have performed the necessary actions.
 - Choose "give up" only if the task cannot be completed.
 - To see content that is not on the screen, choose a "swipe" entry. Swiping up shows content further down.
+- The list is renumbered at every step: a number is only valid for the current screen. Never reuse a number from an earlier step.
 """
 
 # Short answer: the digits of the largest id plus a little slack.

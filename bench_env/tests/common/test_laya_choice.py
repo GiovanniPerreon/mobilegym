@@ -117,7 +117,7 @@ def test_history_goes_into_the_next_state() -> None:
     agent.act(_obs())
     agent.act(Observation(step_idx=2, candidates=_cands(), text_view=TV))
     state, _ = agent.backend.calls[1]
-    assert "[Previous actions]\n1. 4. go back" in state
+    assert "[Previous actions]\n1. go back" in state
 
 
 def test_unknown_or_malformed_answer_aborts() -> None:
