@@ -118,6 +118,7 @@ class LLMClient:
         if stream:
             content_buf = ""
             reasoning_buf = ""
+            logprob_buf: list[Any] = []   # per-token logprobs when the request has logprobs=True
             create_t0 = time.monotonic()
             completion_stream = self._client.chat.completions.create(
                 model=self.model,
@@ -137,6 +138,9 @@ class LLMClient:
                         )
                     if not getattr(chunk, "choices", None):
                         continue
+                    chunk_lp = getattr(chunk.choices[0], "logprobs", None)
+                    for item in getattr(chunk_lp, "content", None) or []:
+                        logprob_buf.append(item.model_dump() if hasattr(item, "model_dump") else item)
                     delta = chunk.choices[0].delta
                     delta_content = getattr(delta, "content", None)
                     if delta_content:
@@ -206,7 +210,7 @@ class LLMClient:
                 content=content_buf,
                 reasoning=reasoning_buf or None,
                 latency_s=latency,
-                raw={"stream": True},
+                raw={"stream": True, **({"logprobs": logprob_buf} if logprob_buf else {})},
             )
 
         # Non-streaming (with retry for transient infrastructure errors)

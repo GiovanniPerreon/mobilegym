@@ -169,6 +169,9 @@ class Observation:
     # Text view of the screen: {format, text, refs, stats}. Only filled when BENCH_OBS is
     # html|a11y|json (see env/text_view.py); empty in the default screenshot setting.
     text_view: dict[str, Any] = field(default_factory=dict)
+    # Candidate action list for the "choice" action mode (see env/candidates.py). Only filled
+    # when BENCH_ACTION_MODE=choice; empty otherwise.
+    candidates: list[dict[str, Any]] = field(default_factory=list)
 
     def get_screenshot_bytes(self) -> bytes:
         """Prefer raw bytes; fallback decode screenshot_base64."""

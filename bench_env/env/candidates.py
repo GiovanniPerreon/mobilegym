@@ -17,9 +17,15 @@ DRAG is excluded in this first version (hard to discretize), as in the report.
 """
 from __future__ import annotations
 
+import os
 from typing import Any, Sequence
 
 from bench_env.env.text_view import _JS_COMMON, ref_point, swipe_points
+
+
+def choice_mode() -> bool:
+    """True when the run uses the "choice" action mode (run.py --agent generic_choice sets this)."""
+    return os.environ.get("BENCH_ACTION_MODE", "").strip().lower() == "choice"
 
 _JS = "() => {" + _JS_COMMON + r"""
 const out = {elements: [], scrollers: []};

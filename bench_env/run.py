@@ -179,11 +179,12 @@ def create_parser() -> argparse.ArgumentParser:
                         "loop-detect 10, temperature 0.1, top_p 0.95, infer-timeout 300). Applied only to "
                         "options left at their default; explicit values win (with a warning).")
     p.add_argument("--obs", choices=["screenshot", "html", "a11y", "json"], default=None,
-                   help="Text observation format for --agent generic_text: html (visible HTML), "
+                   help="Observation format for --agent generic_text / generic_choice: html (visible HTML), "
                         "a11y (accessibility tree), json (view JSON from data-trigger). "
-                        "Default: screenshot only (unchanged).")
+                        "Default: screenshot only (unchanged). generic_choice also accepts 'screenshot'.")
     p.add_argument("--obs-image", action="store_true",
-                   help="Hybrid format: also send the screenshot (with --agent generic_text and --obs).")
+                   help="Hybrid format: also send the screenshot (with --agent generic_text / generic_choice "
+                        "and --obs html|a11y|json; generic_choice without --obs-image sends no image).")
     p.add_argument("--model-base-url", type=str)
     p.add_argument("--model-api-key", type=str, default="")
     p.add_argument("--model-name", type=str)
@@ -427,11 +428,17 @@ def main(argv=None) -> int:
         os.environ["BENCH_OBS"] = args.obs
     if args.obs_image:
         os.environ["BENCH_OBS_IMAGE"] = "1"
-    if args.agent == "generic_text" and os.environ.get("BENCH_OBS", "") not in ("html", "a11y", "json"):
+    # Action mode is read by the env too: the choice agent needs the candidate list on every observation.
+    if args.agent == "generic_choice":
+        os.environ["BENCH_ACTION_MODE"] = "choice"
+    else:
+        os.environ.pop("BENCH_ACTION_MODE", None)
+    text_obs = os.environ.get("BENCH_OBS", "") in ("html", "a11y", "json")
+    if args.agent == "generic_text" and not text_obs:
         print("[ERROR] --agent generic_text requires --obs html|a11y|json")
         return 2
-    if args.agent != "generic_text" and os.environ.get("BENCH_OBS", "") in ("html", "a11y", "json"):
-        print("[ERROR] --obs html|a11y|json requires --agent generic_text")
+    if args.agent not in ("generic_text", "generic_choice") and text_obs:
+        print("[ERROR] --obs html|a11y|json requires --agent generic_text or generic_choice")
         return 2
 
     configure_logging(quiet=args.quiet)

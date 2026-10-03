@@ -17,6 +17,7 @@ from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 
 from bench_env.logger import get_logger
 from bench_env.env.text_view import extract_view, obs_mode
+from bench_env.env.candidates import REPORT_APPS, build_candidates, choice_mode
 from bench_env.env.base import Action, ActionType, BaseMobileEnv, Observation, StepResult
 from bench_env.task import TaskRegistry, JudgeInput, JudgeResult, BaseTask
 
@@ -999,12 +1000,21 @@ class MobileGymEnv(BaseMobileEnv):
                     text_view = await extract_view(self.page, fmt, route)
                 except Exception as e:  # never break an episode because of the text view
                     logger.warning(f"text view extraction failed: {type(e).__name__}: {e}")
+        candidates: list[dict[str, Any]] = []
+        if choice_mode():
+            with sw.phase("candidates"):
+                try:
+                    awake = sorted(a for a in self._KNOWN_APP_IDS if a in REPORT_APPS)
+                    candidates = await build_candidates(self.page, awake)
+                except Exception as e:  # an empty list makes the agent abort cleanly, never crash the episode
+                    logger.warning(f"candidate extraction failed: {type(e).__name__}: {e}")
         return Observation(
             screenshot_bytes=screenshot_bytes,
             route=route,
             state=state,
             step_idx=self._step_count,
             text_view=text_view,
+            candidates=candidates,
         )
 
     def register_handler(self, action_type: ActionType, handler_cls: type[ActionHandler]) -> None:
