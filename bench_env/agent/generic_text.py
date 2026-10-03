@@ -38,6 +38,7 @@ You can address an element by its ref instead of coordinates (the ref is mapped 
 - {"action": "TYPE", "ref": "e3", "value": "text"}   (taps the element first, then types)
 - {"action": "SWIPE", "ref": "e5", "direction": "up|down|left|right"}   (finger moves in that direction inside the element; to see content further down a page, swipe up)
 Coordinates ("point", "point1", "point2") are still accepted. Only visible elements are listed; SWIPE to reveal more content.
+Refs are reassigned at every step: a ref is only valid for the current screen description. Never reuse a ref from an earlier step.
 """
 
 
