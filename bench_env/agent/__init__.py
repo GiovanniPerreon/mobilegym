@@ -8,6 +8,7 @@ from bench_env.agent.generic import GenericAgent
 from bench_env.agent.generic_v2 import GenericAgentV2
 from bench_env.agent.generic_text import GenericTextAgent
 from bench_env.agent.generic_choice import GenericChoiceAgent
+from bench_env.agent.laya_choice import LayaChoiceAgent
 from bench_env.agent.venus import VenusAgent
 from bench_env.agent.gui_owl import GUIOwl15Agent
 from bench_env.agent.uitars import UITarsAgent
@@ -21,6 +22,7 @@ AGENT_REGISTRY: dict[str, type[BaseAgent]] = {
     "generic_v2": GenericAgentV2,
     "generic_text": GenericTextAgent,
     "generic_choice": GenericChoiceAgent,
+    "laya_choice": LayaChoiceAgent,
     "human": HumanAgent,
     "venus": VenusAgent,
     "gui_owl": GUIOwl15Agent,
@@ -55,6 +57,7 @@ __all__ = [
     "GenericAgentV2",
     "GenericTextAgent",
     "GenericChoiceAgent",
+    "LayaChoiceAgent",
     "HumanAgent",
     "VenusAgent",
     "GUIOwl15Agent",

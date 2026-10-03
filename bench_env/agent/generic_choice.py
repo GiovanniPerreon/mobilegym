@@ -228,6 +228,14 @@ class GenericChoiceAgent(BaseAgent):
         return _clean_text(self.llm.chat(messages=follow, args=self._text_args()).content)
 
     # ------------------------------------------------------------------ core
+    def _decide(self, obs: Observation, messages: list[dict], n: int) -> tuple[Optional[int], Optional[float], str, int]:
+        """The decision step: returns (chosen id or None, probability or None, raw answer text, LLM calls used).
+
+        Overridden by deciders that are not a generative model (laya_choice)."""
+        resp = self.llm.chat(messages=messages, args=self._choice_args(n))
+        raw_text = resp.content or ""
+        return parse_choice(raw_text, n), choice_probability(resp.raw), raw_text, 1
+
     def act(self, obs: Observation) -> Action:
         cands = obs.candidates
         n = len(cands)
@@ -241,11 +249,7 @@ class GenericChoiceAgent(BaseAgent):
             action = Action(action_type=ActionType.ABORT, data={"value": "no_candidates"})
         else:
             messages = self.build_messages(obs)
-            resp = self.llm.chat(messages=messages, args=self._choice_args(n))
-            calls = 1
-            raw_text = resp.content or ""
-            prob = choice_probability(resp.raw)
-            cid = parse_choice(raw_text, n)
+            cid, prob, raw_text, calls = self._decide(obs, messages, n)
             if cid is None:
                 action = Action(action_type=ActionType.ABORT,
                                 data={"value": f"invalid_choice:{raw_text.strip()[:20]}"})
@@ -256,7 +260,7 @@ class GenericChoiceAgent(BaseAgent):
                 text: Optional[str] = None
                 if cand.get("needs_text"):
                     text = self._ask_text(messages, cand, label)
-                    calls = 2
+                    calls += 1
                     if not text:
                         action = Action(action_type=ActionType.ABORT, data={"value": "empty_text"})
                     else:

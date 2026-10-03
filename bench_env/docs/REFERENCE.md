@@ -12,7 +12,7 @@ Source: `bench_env/config.py`. Internal-only fields (`split_task_ids` / `run_dir
 
 | Field | Default | Description |
 |---|---|---|
-| `agent` | — | Agent identifier (`autoglm` / `gelab` / `generic` / `generic_v2` / `generic_text` / `generic_choice` / `human` / `venus` / `gui_owl` / `uitars` / `mai_ui`) |
+| `agent` | — | Agent identifier (`autoglm` / `gelab` / `generic` / `generic_v2` / `generic_text` / `generic_choice` / `laya_choice` / `human` / `venus` / `gui_owl` / `uitars` / `mai_ui`) |
 | `model_name` | — | LLM model name |
 | `model_base_url` | — | LLM API base URL |
 | `model_api_key` | — | LLM API key (optional for local endpoints) |
@@ -282,6 +282,21 @@ python -m bench_env.run --agent generic_choice --obs json --obs-image ...
 - `TYPE` and `ANSWER` need text, so after choosing them a second generative call asks for the text (counted in `calls`).
 - Per step, `Action.explain` holds `choice=<id> n=<list length> p=<probability of the chosen entry> calls=<LLM calls>`; `p` is the probability of the token sequence that spells the number, without the decision to stop.
 - Not in the list: `DRAG` (excluded in this first version).
+
+### LayaChoiceAgent (`agent/laya_choice.py`, dedicated decider)
+
+Same candidate list, same mapping to actions and same text step as `generic_choice` (it is a subclass); only the decision changes. [Laya](https://huggingface.co/convaiinnovations/laya) is an encoder with a decision head (no text generation) that scores the options in one forward pass, through the `laya` Python package (`pip install laya`).
+
+```bash
+python -m bench_env.run --agent laya_choice --obs a11y --env-url http://... --model-base-url ... --model-name ...
+python -m bench_env.run --agent laya_choice --obs json ...
+```
+
+- Only `--obs a11y|json`, without `--obs-image`: Laya has no image input and its context (512 tokens for the root checkpoint, 1,024 for `laya-typed-decisions`) is too short for HTML. `run.py` refuses other combinations.
+- Task, last 5 actions, screen text and option names must fit the context (`BENCH_LAYA_CTX`, default 1024, budgeted in characters). The screen text is truncated first, then tap entries at the end of the list are left out; the number of left-out entries is in `Action.raw_response` as `dropped=<k>`.
+- `--model-base-url/--model-name` still point to a generative model: it only writes the text of `TYPE`/`ANSWER` steps (`calls=1` on those steps, `calls=0` otherwise).
+- `BENCH_LAYA_MODEL` / `BENCH_LAYA_SUBFOLDER` choose the checkpoint (`laya.load(repo, subfolder=...)`); by default `laya.Router()` picks it.
+- `p` is read from the answer if the package returns probabilities, else `None`. The `laya` calls follow the Hugging Face model card and have not been run against the real package yet (`_LayaBackend` is the only place to adapt).
 
 ### VenusAgent (`agent/venus.py`)
 
