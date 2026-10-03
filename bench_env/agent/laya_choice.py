@@ -21,6 +21,11 @@ Environment variables
   BENCH_LAYA_MODEL      HF repo for laya.load (default: use laya.Router(), which picks the checkpoint)
   BENCH_LAYA_SUBFOLDER  subfolder of that repo, e.g. "multilingual" (needs BENCH_LAYA_MODEL or uses the default repo)
   BENCH_LAYA_CTX        context length in tokens used for the budget (default 1024)
+  BENCH_LAYA_HISTORY    how many previous actions are written into the state (default 5; 0 = none). Laya matches the
+                        option names against the text it reads, so a repeated action name in the history can pull it
+                        into repeating that action; 0 makes every decision independent of the past.
+  BENCH_LAYA_DESC       option descriptions: "template" (default: one fixed sentence per action kind) or "label"
+                        (the description is the option name itself)
 
 The `laya` API calls here follow its Hugging Face model card (predict(state, questions) with a "choice"
 question whose criteria map option name -> description). They have not been run against the real package
@@ -48,21 +53,22 @@ _DESCRIPTIONS = {
     "SWIPE": "scroll or swipe the screen",
     "TYPE": "type text into this field",
     "AWAKE": "open this app",
-    "ANSWER": "give the final answer to the question in the task",
+    "ANSWER": "write down the final answer",
     "BACK": "press the back button",
     "HOME": "go to the home screen",
     "RECENT": "open the recent apps",
     "ENTER": "press the enter key",
     "WAIT": "wait for the screen to update",
-    "COMPLETE": "finish the task because it is done",
-    "ABORT": "stop because the task cannot be done",
+    "COMPLETE": "finish now, everything is done",
+    "ABORT": "give up, it cannot be done",
 }
 _NUM_PREFIX = re.compile(r"^\d+\.\s*")   # list number at the start of a recorded action
 _PROB_KEYS = ("probs", "probabilities", "scores", "distribution")
 _CONF_KEYS = ("confidence", "probability", "prob", "score")
 
 
-def build_options(cands: list[dict[str, Any]], drop: int = 0) -> tuple[dict[str, str], dict[str, int]]:
+def build_options(cands: list[dict[str, Any]], drop: int = 0, desc: str = "template"
+                  ) -> tuple[dict[str, str], dict[str, int]]:
     """Option name -> description for Laya, and option name -> candidate id.
 
     Names are the candidate labels (shortened, made unique with " (2)", " (3)" ...). The ``drop`` last
@@ -78,7 +84,7 @@ def build_options(cands: list[dict[str, Any]], drop: int = 0) -> tuple[dict[str,
         key, k = name, 2
         while key in criteria:
             key, k = f"{name} ({k})", k + 1
-        criteria[key] = _DESCRIPTIONS.get(str(c.get("action", "")), "perform this action")
+        criteria[key] = key if desc == "label" else _DESCRIPTIONS.get(str(c.get("action", "")), "perform this action")
         by_name[key] = int(c["id"])
     return criteria, by_name
 
@@ -87,7 +93,7 @@ def _options_chars(criteria: dict[str, str]) -> int:
     return sum(len(k) + len(v) + 4 for k, v in criteria.items())
 
 
-def fit_budget(head: str, screen: str, cands: list[dict[str, Any]], ctx_tokens: int
+def fit_budget(head: str, screen: str, cands: list[dict[str, Any]], ctx_tokens: int, desc: str = "template"
                ) -> tuple[str, dict[str, str], dict[str, int], int]:
     """Make task + history (head), screen text and options fit in ``ctx_tokens``.
 
@@ -97,7 +103,7 @@ def fit_budget(head: str, screen: str, cands: list[dict[str, Any]], ctx_tokens: 
     n_taps = sum(1 for c in cands if c.get("action") == "CLICK")
     drop = 0
     while True:
-        criteria, by_name = build_options(cands, drop)
+        criteria, by_name = build_options(cands, drop, desc)
         left = budget - len(head) - _options_chars(criteria)
         if left >= budget // 4 or drop >= n_taps:
             break
@@ -154,6 +160,8 @@ class LayaChoiceAgent(GenericChoiceAgent):
         super().__init__(llm, config)
         self.backend = backend or _LayaBackend()
         self.ctx_tokens = int(os.environ.get("BENCH_LAYA_CTX", "1024"))
+        self.history_steps = max(0, int(os.environ.get("BENCH_LAYA_HISTORY", str(_HISTORY_STEPS))))
+        self.desc_mode = "label" if os.environ.get("BENCH_LAYA_DESC", "").strip().lower() == "label" else "template"
 
     @property
     def name(self) -> str:
@@ -161,7 +169,7 @@ class LayaChoiceAgent(GenericChoiceAgent):
 
     def _head(self) -> str:
         lines = [f"[Task]\n{self._task}"]
-        recent = self._history[-_HISTORY_STEPS:]
+        recent = self._history[-self.history_steps:] if self.history_steps else []
         if recent:
             # the list numbers change at every step: keep only the action text, numbered by step
             lines.append("[Previous actions]\n" + "\n".join(
@@ -176,7 +184,7 @@ class LayaChoiceAgent(GenericChoiceAgent):
             raise ValueError("laya_choice needs --obs a11y or --obs json (Laya has no image input and a "
                              "context too short for html)")
         state, criteria, by_name, dropped = fit_budget(self._head(), str(tv.get("text", "")),
-                                                       obs.candidates, self.ctx_tokens)
+                                                       obs.candidates, self.ctx_tokens, self.desc_mode)
         questions = {"action": {"type": "choice", "instructions": _INSTRUCTIONS, "criteria": criteria}}
         result = self.backend.predict(state, questions)
         try:

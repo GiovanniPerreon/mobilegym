@@ -138,3 +138,25 @@ def test_ctx_env_variable() -> None:
     with patch.dict(os.environ, {"BENCH_LAYA_CTX": "512"}):
         agent, _ = _agent(FakeLaya())
         assert agent.ctx_tokens == 512
+
+
+def test_history_can_be_switched_off() -> None:
+    with patch.dict(os.environ, {"BENCH_LAYA_HISTORY": "0"}):
+        agent, _ = _agent(FakeLaya({"choice": "go back"}, {"choice": "go back"}))
+        agent.act(_obs())
+        agent.act(Observation(step_idx=2, candidates=_cands(), text_view=TV))
+        assert "[Previous actions]" not in agent.backend.calls[1][0]
+    with patch.dict(os.environ, {"BENCH_LAYA_HISTORY": "1"}):
+        agent, _ = _agent(FakeLaya({"choice": "go back"}, {"choice": "go back"}, {"choice": "go back"}))
+        for i in (1, 2, 3):
+            agent.act(Observation(step_idx=i, candidates=_cands(), text_view=TV))
+        assert agent.backend.calls[2][0].count("go back") == 1        # only the last action is kept
+
+
+def test_label_descriptions() -> None:
+    criteria, _ = build_options(_cands(), desc="label")
+    assert criteria["go back"] == "go back" and criteria["tap: Mamma (2)"] == "tap: Mamma (2)"
+    with patch.dict(os.environ, {"BENCH_LAYA_DESC": "label"}):
+        agent, _ = _agent(FakeLaya({"choice": "go back"}))
+        agent.act(_obs())
+        assert agent.backend.calls[0][1]["action"]["criteria"]["go back"] == "go back"

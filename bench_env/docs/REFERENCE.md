@@ -295,6 +295,7 @@ python -m bench_env.run --agent laya_choice --obs json ...
 - Only `--obs a11y|json`, without `--obs-image`: Laya has no image input and its context (512 tokens for the root checkpoint, 1,024 for `laya-typed-decisions`) is too short for HTML. `run.py` refuses other combinations.
 - Task, last 5 actions, screen text and option names must fit the context (`BENCH_LAYA_CTX`, default 1024, budgeted in characters). The screen text is truncated first, then tap entries at the end of the list are left out; the number of left-out entries is in `Action.raw_response` as `dropped=<k>`.
 - `--model-base-url/--model-name` still point to a generative model: it only writes the text of `TYPE`/`ANSWER` steps (`calls=1` on those steps, `calls=0` otherwise).
+- `BENCH_LAYA_HISTORY` (default 5; `0` = no previous actions in the state) and `BENCH_LAYA_DESC` (`template` default, or `label` = the description is the option name): Laya matches option names against the text it reads, so repeated action names in the history or template words can pull it into repeating an action; these switches test that.
 - `BENCH_LAYA_MODEL` / `BENCH_LAYA_SUBFOLDER` choose the checkpoint (`laya.load(repo, subfolder=...)`); by default `laya.Router()` picks it.
 - `p` is read from the answer if the package returns probabilities, else `None`. The `laya` calls follow the Hugging Face model card and have not been run against the real package yet (`_LayaBackend` is the only place to adapt).
 
