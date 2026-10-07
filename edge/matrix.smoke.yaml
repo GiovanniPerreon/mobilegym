@@ -1,0 +1,35 @@
+# Smoke test: ONE configuration, ONE profile, TWO tasks (the same two used for the week-2 smoke tests).
+# Purpose: check the whole chain (constrained server, proxy, benchmark in the MobileGym image, join) before the real matrix.
+#   python3 -m edge.run_matrix --config edge/matrix.smoke.yaml --dry-run
+#   python3 -m edge.run_matrix --config edge/matrix.smoke.yaml
+
+env_url: http://localhost:4173            # not used: the benchmark runs in the image (bench_image)
+models_dir: /home/perreon/edge_models
+profiles_file: edge/profiles.yaml
+profiles: [ram8-permissive]
+
+bench_image: mobilegym_full:latest
+docker_network: edgenet
+bench_cores: "24-31"                      # simulator, proxy and benchmark
+slot: 5                                   # server on cores 20-23 (block 5 of 4 cores)
+
+bench_args: >-
+  --task-ids bilibili.OpenRankingTask,notes.CreateFolderAndMoveNote --preset paper --judge-mode state --temperature 0
+
+parallel: 1
+infer_timeout: 3600
+load_timeout: 900
+default_ctx: 16384
+server_image: ghcr.io/ggml-org/llama.cpp:server
+server_args: "--jinja"
+load_flags: "--load-mode none"
+
+models:
+  - id: qwen35-0.8b-q4km-a11y-choice
+    gguf: Qwen3.5-0.8B-Q4_K_M.gguf
+    model_name: qwen3.5-0.8b
+    agent: generic_choice
+    bench_args: "--obs a11y"
+    ctx: 4096
+    server_args: >-
+      --jinja --chat-template-kwargs '{"enable_thinking":false}'
