@@ -1,0 +1,49 @@
+# Device profiles: resources granted to the model server.
+#
+#   dram_mib        physical RAM of the simulated phone class (MiB); null = no limit
+#   policy          none | permissive (50% of dram) | strict (10% of dram) | measured
+#   ram_budget_mib  only for policy "measured": MemAvailable read from a real phone
+#   cores           CPU cores pinned to the server (docker --cpuset-cpus)
+#
+# The budget of permissive/strict is computed by edge/common.py from dram_mib and policy,
+# so RAM and budget cannot diverge.
+#
+# Sources of the conventions:
+#   - MobileLLM (arXiv 2402.14905): phones with 6-12 GB DRAM; an app should not exceed 10% of DRAM.
+#   - arXiv 2402.15319: on an 8 GB phone, OS + active apps leave less than 4 GB for an LLM.
+profiles:
+  - id: unlimited
+    dram_mib: null
+    policy: none
+    cores: 4
+  - id: ram12-permissive
+    dram_mib: 12288
+    policy: permissive
+    cores: 4
+  - id: ram8-permissive
+    dram_mib: 8192
+    policy: permissive
+    cores: 4
+  - id: ram6-permissive
+    dram_mib: 6144
+    policy: permissive
+    cores: 4
+  - id: ram12-strict
+    dram_mib: 12288
+    policy: strict
+    cores: 4
+  - id: ram8-strict
+    dram_mib: 8192
+    policy: strict
+    cores: 4
+  - id: ram6-strict
+    dram_mib: 6144
+    policy: strict
+    cores: 4
+
+# Measured profile example (paste the output of edge/android/measure_phone.sh, fix "cores"):
+#  - id: phone-test
+#    dram_mib: 7712
+#    policy: measured
+#    ram_budget_mib: 3410
+#    cores: 4

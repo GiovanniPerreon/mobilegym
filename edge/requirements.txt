@@ -1,0 +1,3 @@
+# Dependencies of edge/ (in addition to bench_env/requirements.txt)
+pyyaml>=6.0
+matplotlib>=3.7
