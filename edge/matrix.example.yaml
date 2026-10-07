@@ -45,7 +45,7 @@ proxy_port: 9090
 models:
   - id: qwen35-0.8b-q4km-screenshot-gen
     gguf: Qwen3.5-0.8B-Q4_K_M.gguf
-    mmproj: mmproj-Qwen3.5-0.8B-F16.gguf
+    mmproj: Qwen3.5-0.8B-mmproj-F16.gguf
     model_name: qwen3.5-0.8b
     agent: generic_v2
     ctx: 16384
