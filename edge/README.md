@@ -35,8 +35,11 @@ against a hand calculation, the `llama-bench` / `llama-mtmd-cli` output parsers,
 
 Not verified (needs Docker, a model or a phone — run these first on the cluster node):
 
-- **Docker limits in rootless mode.** `--cpuset-cpus` and `--memory` need the cpuset and memory cgroup controllers
-  delegated to the user. Check with `python -m edge.edge_server up ... --dry-run`, then a real start.
+- **Docker limits in rootless mode.** `--memory` works on node 43 (checked: `memory.max` = 643825664 for 614m).
+  `--cpuset-cpus` is discarded there ("Your kernel does not support cpuset"), so `edge_server.up` also pins the
+  server from the host with `taskset -a -cp` (before and after the model load) and records the affinity read back
+  (`pin_start`, `pin_after_load`; a mismatch is written in the `note` column of `matrix_status.csv`). Choose idle
+  cores with `slot` (server cores = block number `slot`) and keep the benchmark off them with `bench_cores`.
 - **`--load-mode none`.** Taken from the guide; if your `llama-server` build does not know it, set
   `load_flags: "--no-mmap"` in `matrix.yaml` (or `--load-flags --no-mmap`).
 - **Binary paths in the `full` image.** `bench_device.py` assumes `/app/llama-bench` and `/app/llama-mtmd-cli`
@@ -45,6 +48,16 @@ Not verified (needs Docker, a model or a phone — run these first on the cluste
   falls back to plain HTTP; with `openai` installed it uses the real client automatically.
 - **Android** (`edge/android/*`: build, emulator, deploy, `measure_phone.sh`, `phone_peak.sh`) is not included; the
   `adb` target of `bench_device.py` expects the binaries and model files already in `--device-dir`.
+
+## Benchmark inside the MobileGym image
+
+On node 43 the host has neither conda nor a recent Node, so the selection phase ran everything in `mobilegym_full`.
+With `bench_image: mobilegym_full:latest` in `matrix.yaml`, `run_matrix.py` starts the model server (CPU image, limits of
+the profile) on a private docker network and runs `bench_container.sh` in a second container of that image:
+simulator, measurement proxy and `bench_env.run` all inside it, reaching the server by container name (no host
+networking, which rootless Docker does not give). `edge/` is mounted read-only into the container; the proxy only
+needs the standard library. `BENCH_CHOICE_CONSTRAINT=grammar` is set as in the selection phase (`bench_env:` in the
+matrix adds more variables). Without `bench_image` the old mode (benchmark and proxy on the host) is used.
 
 ## Choices to be aware of
 
