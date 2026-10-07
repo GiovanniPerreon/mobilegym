@@ -152,7 +152,20 @@ def test_docker_cmd(td: Path) -> None:
     with contextlib.redirect_stdout(io.StringIO()):
         assert edge_server.main(["up", "--profile", "ram6-strict", "--model", str(td / "m.gguf"), "--ctx", "8192",
                                  "--dry-run"]) == 0
-    ok("docker", "cpuset, memoria senza swap, -np 1, --cache-ram 0, --load-mode none, slot")
+    # network + benchmark in the MobileGym image
+    _, cmd_n = edge_server.build_run_cmd(prof, str(td / "m.gguf"), None, 4096, network="edgenet")
+    assert "--network edgenet" in " ".join(cmd_n)
+    cfg = {"env_url": "x", "bench_image": "mobilegym_full:latest", "bench_cores": "8-15", "proxy_port": 9090,
+           "bench_args": "--split selection_40 --temperature 0"}
+    _, bc = run_matrix.container_bench_cmd(cfg, {"id": "m", "agent": "generic_choice", "bench_args": "--obs a11y"},
+                                           "m__p", "edge-p", "edgenet", 9090, td / "out", td / "runs")
+    b = " ".join(bc)
+    for needle in ("--network edgenet", "UPSTREAM=http://edge-p:8080", "BENCH_CHOICE_CONSTRAINT=grammar",
+                   "BENCH_CORES=8-15", "--entrypoint bash mobilegym_full:latest", "bench_container.sh python -m bench_env.run",
+                   "--env-url http://127.0.0.1:4173", "--model-base-url http://127.0.0.1:9090/v1", "--runs-dir /runs",
+                   "--temperature 0", "--obs a11y", "--agent generic_choice"):
+        assert needle in b, needle
+    ok("docker", "cpuset, memoria senza swap, -np 1, --cache-ram 0, --load-mode none, slot, rete, benchmark nell'immagine")
 
 
 class _FakeUpstream(http.server.BaseHTTPRequestHandler):
