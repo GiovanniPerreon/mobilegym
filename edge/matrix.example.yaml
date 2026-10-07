@@ -14,11 +14,11 @@ profiles_file: edge/profiles.yaml
 profiles: [unlimited, ram12-permissive, ram8-permissive, ram6-permissive, ram12-strict, ram8-strict, ram6-strict]
 
 # bench_env options common to all runs. Same tasks, same seed and same preset in every run so configurations are
-# compared on the same episodes. (The selection phase used: --split selection_40 --sample-n 1 --sample-seed 0
-# --preset paper --judge-mode state. NOTE: --preset paper uses temperature 0.1; the success of a configuration is
-# identical across profiles only with temperature 0, i.e. replace it with --temperature 0 if you need that.)
+# compared on the same episodes. The selection phase used the same options without --temperature (the paper preset
+# sets 0.1). Here the temperature is 0, so that the success of a configuration does not depend on the profile; an
+# explicit --temperature overrides the preset (bench_env only prints a [WARN] line).
 bench_args: >-
-  --split selection_40 --sample-n 1 --sample-seed 0 --preset paper --judge-mode state
+  --split selection_40 --sample-n 1 --sample-seed 0 --preset paper --judge-mode state --temperature 0
 
 parallel: 1               # a phone runs one agent at a time
 infer_timeout: 3600       # seconds per call; must exceed the longest call (max context / prefill speed)

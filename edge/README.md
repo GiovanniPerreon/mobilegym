@@ -48,9 +48,10 @@ Not verified (needs Docker, a model or a phone — run these first on the cluste
 
 ## Choices to be aware of
 
-- The guide says the `bench_env` default temperature is 0, so success does not change across profiles. The selection
-  phase used `--preset paper` (temperature 0.1); with 0.1 repeated runs of the same configuration can differ. Pass
-  `--temperature 0` in `bench_args` if you need identical success across profiles.
+- Temperature is 0 in `matrix.example.yaml` (`--temperature 0` next to `--preset paper`; the explicit value wins over
+  the preset's 0.1), so success does not depend on the profile. The selection phase used 0.1: its results are not
+  directly comparable, rerun the reference (`unlimited`) run of the configurations you keep. Even at temperature 0,
+  small numerical differences between backends (GPU vs CPU) can change the outcome of a few episodes.
 - Success and progress in `join.json` are computed over episodes without a judge error (`is_error` false), as in the
   selection phase.
 - Calls without a saved step are attached to the episode of the closest earlier matched call within `--max-gap-s`
