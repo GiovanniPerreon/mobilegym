@@ -1,0 +1,62 @@
+# Example matrix: copy to edge/matrix.yaml and adapt.
+#
+# One entry in `models` = one configuration (GGUF + observation format + action mode). Each configuration is run in
+# every profile listed in `profiles` (use `unlimited` first for the reference run and to measure the context).
+#
+# Workflow:
+#   1. python -m edge.run_matrix --config edge/matrix.yaml --profile unlimited      # reference run, any ctx large enough
+#   2. read context_tokens_max in edge/results/<id>__unlimited/join.json, set `ctx` below (rounded up to a multiple of 1024)
+#   3. python -m edge.run_matrix --config edge/matrix.yaml --profile ram8-permissive,ram8-strict,...  (smaller split)
+
+env_url: http://localhost:4173            # used only without bench_image (simulator already running on the host)
+models_dir: /data/models                  # folder with the GGUF files
+
+# Run simulator + proxy + benchmark inside the MobileGym image (as in the selection phase) instead of on the host.
+# The model server and this container share a docker network, so no host networking is needed (rootless Docker).
+# bench_image: mobilegym_full:latest
+# docker_network: edgenet
+# bench_cores: "8-15"                      # cores for simulator/proxy/benchmark, away from the server cores
+profiles_file: edge/profiles.yaml
+profiles: [unlimited, ram12-permissive, ram8-permissive, ram6-permissive, ram12-strict, ram8-strict, ram6-strict]
+
+# bench_env options common to all runs. Same tasks, same seed and same preset in every run so configurations are
+# compared on the same episodes. The selection phase used the same options without --temperature (the paper preset
+# sets 0.1). Here the temperature is 0, so that the success of a configuration does not depend on the profile; an
+# explicit --temperature overrides the preset (bench_env only prints a [WARN] line).
+bench_args: >-
+  --split selection_40 --sample-n 1 --sample-seed 0 --preset paper --judge-mode state --temperature 0
+
+parallel: 1               # a phone runs one agent at a time
+infer_timeout: 3600       # seconds per call; must exceed the longest call (max context / prefill speed)
+load_timeout: 900
+default_ctx: 16384
+
+# llama-server: image, extra arguments, weight loading option
+# server_image: ghcr.io/ggml-org/llama.cpp:server
+server_args: "--jinja"
+load_flags: "--load-mode none"      # use "--no-mmap" if your llama.cpp build has no --load-mode
+reference_gpu: false                # true: the `unlimited` run uses the GPU (quality run, no memory/latency meaning)
+
+# to run two matrices in parallel on the same node: different slot (core block) and ports
+slot: 0                   # server cores = block number `slot` of profile.cores (slot 5, 4 cores -> 20-23): pick idle cores
+server_port: 8080
+proxy_port: 9090
+
+models:
+  - id: qwen35-0.8b-q4km-screenshot-gen
+    gguf: Qwen3.5-0.8B-Q4_K_M.gguf
+    mmproj: Qwen3.5-0.8B-mmproj-F16.gguf
+    model_name: qwen3.5-0.8b
+    agent: generic_v2
+    ctx: 16384
+    server_args: >-
+      --jinja --chat-template-kwargs '{"enable_thinking":false}'
+
+  - id: qwen35-0.8b-q4km-a11y-choice
+    gguf: Qwen3.5-0.8B-Q4_K_M.gguf
+    model_name: qwen3.5-0.8b
+    agent: generic_choice
+    bench_args: "--obs a11y"
+    ctx: 4096
+    server_args: >-
+      --jinja --chat-template-kwargs '{"enable_thinking":false}'
