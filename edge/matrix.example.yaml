@@ -1,0 +1,56 @@
+# Example matrix: copy to edge/matrix.yaml and adapt.
+#
+# One entry in `models` = one configuration (GGUF + observation format + action mode). Each configuration is run in
+# every profile listed in `profiles` (use `unlimited` first for the reference run and to measure the context).
+#
+# Workflow:
+#   1. python -m edge.run_matrix --config edge/matrix.yaml --profile unlimited      # reference run, any ctx large enough
+#   2. read context_tokens_max in edge/results/<id>__unlimited/join.json, set `ctx` below (rounded up to a multiple of 1024)
+#   3. python -m edge.run_matrix --config edge/matrix.yaml --profile ram8-permissive,ram8-strict,...  (smaller split)
+
+env_url: http://localhost:4173            # MobileGym simulator, already running
+models_dir: /data/models                  # folder with the GGUF files
+profiles_file: edge/profiles.yaml
+profiles: [unlimited, ram12-permissive, ram8-permissive, ram6-permissive, ram12-strict, ram8-strict, ram6-strict]
+
+# bench_env options common to all runs. Same tasks, same seed and same preset in every run so configurations are
+# compared on the same episodes. (The selection phase used: --split selection_40 --sample-n 1 --sample-seed 0
+# --preset paper --judge-mode state. NOTE: --preset paper uses temperature 0.1; the success of a configuration is
+# identical across profiles only with temperature 0, i.e. replace it with --temperature 0 if you need that.)
+bench_args: >-
+  --split selection_40 --sample-n 1 --sample-seed 0 --preset paper --judge-mode state
+
+parallel: 1               # a phone runs one agent at a time
+infer_timeout: 3600       # seconds per call; must exceed the longest call (max context / prefill speed)
+load_timeout: 900
+default_ctx: 16384
+
+# llama-server: image, extra arguments, weight loading option
+# server_image: ghcr.io/ggml-org/llama.cpp:server
+server_args: "--jinja"
+load_flags: "--load-mode none"      # use "--no-mmap" if your llama.cpp build has no --load-mode
+reference_gpu: false                # true: the `unlimited` run uses the GPU (quality run, no memory/latency meaning)
+
+# to run two matrices in parallel on the same node: different slot (core block) and ports
+slot: 0
+server_port: 8080
+proxy_port: 9090
+
+models:
+  - id: qwen35-0.8b-q4km-screenshot-gen
+    gguf: Qwen3.5-0.8B-Q4_K_M.gguf
+    mmproj: mmproj-Qwen3.5-0.8B-F16.gguf
+    model_name: qwen3.5-0.8b
+    agent: generic_v2
+    ctx: 16384
+    server_args: >-
+      --jinja --chat-template-kwargs '{"enable_thinking":false}'
+
+  - id: qwen35-0.8b-q4km-a11y-choice
+    gguf: Qwen3.5-0.8B-Q4_K_M.gguf
+    model_name: qwen3.5-0.8b
+    agent: generic_choice
+    bench_args: "--obs a11y"
+    ctx: 4096
+    server_args: >-
+      --jinja --chat-template-kwargs '{"enable_thinking":false}'
