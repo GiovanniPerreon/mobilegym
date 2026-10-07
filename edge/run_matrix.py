@@ -196,6 +196,9 @@ def run_one(cfg: dict[str, Any], model: dict[str, Any], prof: Profile, results_d
     pk = edge_server.peak(info["name"]) if st.get("running") else {}
     row["vmhwm_mib"] = pk.get("vmhwm_mib", "")
     row["cgroup_peak_mib"] = pk.get("cgroup_peak_mib", "")
+    if row["vmhwm_mib"] in ("", None):  # never fail silently: the memory peak is the main result
+        why = pk.get("error") or ("server container not running after the run: " + repr(st))
+        row["note"] = (str(row.get("note", "")) + f" memory peak not read: {why}").strip()
     if st.get("oom_killed"):
         status = "oom_during_run"
     elif proc.returncode != 0:
