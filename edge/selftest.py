@@ -260,7 +260,7 @@ def test_proxy_and_join(td: Path) -> None:
         m = msgs(f"episode {ep} step {step}")
         out = _chat(base, m, stream, use_client)
         assert "hello" in out or "hel" in out
-        d = runs_root / "trajectory" / f"task.{ep}"
+        d = runs_root / "trajectory" / f"task_{ep}"   # the recorder replaces "." with "_" in directory names
         d.mkdir(parents=True, exist_ok=True)
         (d / f"step_{step:03d}_prompt.json").write_text(json.dumps(strip(m), ensure_ascii=False), encoding="utf-8")
         time.sleep(0.02)

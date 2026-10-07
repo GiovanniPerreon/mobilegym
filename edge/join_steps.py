@@ -67,7 +67,9 @@ def find_episodes(runs_root: Path) -> dict[str, dict[str, Any]]:
 
 
 def load_results(runs_root: Path) -> dict[str, dict[str, Any]]:
-    """Map episode directory names ('<id>' and '<id>_t<trial>') to results.jsonl rows."""
+    """Map episode directory names ('<id>' and '<id>_t<trial>') to results.jsonl rows.
+    The recorder names the directories after the task id with '.', '/' and ' ' replaced by '_'
+    (bench_env/env/recorder.py), so 'bilibili.OpenRankingTask' is the directory 'bilibili_OpenRankingTask'."""
     out: dict[str, dict[str, Any]] = {}
     for rj in sorted(runs_root.rglob("results.jsonl")):
         with open(rj, encoding="utf-8") as f:
@@ -77,8 +79,10 @@ def load_results(runs_root: Path) -> dict[str, dict[str, Any]]:
                     continue
                 row = json.loads(line)
                 rid = str(row.get("id", ""))
-                out[rid] = row
-                out[f"{rid}_t{row.get('trial_id', 0)}"] = row
+                safe = rid.replace(".", "_").replace("/", "_").replace(" ", "_")
+                for key in {rid, safe}:
+                    out[key] = row
+                    out[f"{key}_t{row.get('trial_id', 0)}"] = row
     return out
 
 
