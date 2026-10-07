@@ -7,6 +7,8 @@
 
 Every option makes the measurement closer to a phone (see the guide, Step 3):
   --cpuset-cpus        exactly the profile cores (docker --cpus would only grant a time quota)
+  taskset (host)       fallback when rootless Docker discards --cpuset-cpus (cpuset cgroup not delegated): the
+                       server process is pinned to the same cores from outside with `taskset -a -cp`
   --memory/--memory-swap equal to the budget: swap off, so over-budget means OOM instead of a slow run
   --load-mode none     weights in anonymous memory like the KV cache, no mmap (override: --load-flags)
   -np 1                one inference slot: -c is not split between slots
@@ -55,10 +57,13 @@ def build_run_cmd(
     server_args: str = DEFAULT_SERVER_ARGS,
     load_flags: str = DEFAULT_LOAD_FLAGS,
     cache_type: str = "f16",
+    network: Optional[str] = None,
 ) -> tuple[str, list[str]]:
     """Return (container name, docker command line). Does not run anything."""
     name = name or default_name(profile.id, slot)
     cmd = [DOCKER, "run", "-d", "--name", name]
+    if network:
+        cmd += ["--network", network]
 
     if gpu:
         cmd += ["--gpus", "device=0"]
@@ -115,6 +120,23 @@ def container_logs(name: str, tail: int = 60) -> str:
     return (r.stdout + r.stderr).strip()
 
 
+def pin_cpus(name: str, cores: str) -> dict[str, Any]:
+    """Pin every thread of the container's main process to `cores` from the host (`taskset -a -cp`).
+    Needed when rootless Docker discards --cpuset-cpus ("Your kernel does not support cpuset"). Threads created
+    later inherit the mask. Returns the affinity read back, so the run can show it was applied."""
+    r = _run([DOCKER, "inspect", "-f", "{{.State.Pid}}", name])
+    pid = r.stdout.strip()
+    if r.returncode != 0 or not pid.isdigit() or pid == "0":
+        return {"ok": False, "note": f"no pid for {name}"}
+    try:
+        _run(["taskset", "-a", "-cp", cores, pid])
+        back = _run(["taskset", "-cp", pid])
+    except FileNotFoundError:
+        return {"ok": False, "note": "taskset not installed on the host"}
+    got = back.stdout.strip().rsplit(":", 1)[-1].strip()
+    return {"ok": got == cores, "pid": int(pid), "affinity": got, "wanted": cores}
+
+
 def wait_ready(name: str, port: int, timeout_s: float = 600.0) -> dict[str, Any]:
     """Poll /health until the server answers 200; stop early if the container dies (e.g. OOM at load)."""
     t0 = time.time()
@@ -138,9 +160,11 @@ def wait_ready(name: str, port: int, timeout_s: float = 600.0) -> dict[str, Any]
 def up(profile: Profile, model: str, mmproj: Optional[str], ctx: int, *, name: Optional[str] = None,
        port: int = 8080, slot: int = 0, gpu: bool = False, image: Optional[str] = None,
        server_args: str = DEFAULT_SERVER_ARGS, load_flags: str = DEFAULT_LOAD_FLAGS,
-       cache_type: str = "f16", timeout_s: float = 600.0, dry_run: bool = False) -> dict[str, Any]:
+       cache_type: str = "f16", timeout_s: float = 600.0, dry_run: bool = False,
+       network: Optional[str] = None) -> dict[str, Any]:
     name, cmd = build_run_cmd(profile, model, mmproj, ctx, name=name, port=port, slot=slot, gpu=gpu,
-                              image=image, server_args=server_args, load_flags=load_flags, cache_type=cache_type)
+                              image=image, server_args=server_args, load_flags=load_flags, cache_type=cache_type,
+                              network=network)
     info: dict[str, Any] = {"name": name, "base_url": f"http://127.0.0.1:{port}/v1", "port": port,
                             "profile": profile.id, "cpuset": None if gpu else cpuset_for(profile, slot),
                             "memory_mib": None if gpu else profile.budget_mib, "cmd": " ".join(shlex.quote(c) for c in cmd)}
@@ -152,7 +176,11 @@ def up(profile: Profile, model: str, mmproj: Optional[str], ctx: int, *, name: O
     if r.returncode != 0:
         info.update(status="load_failed", logs=(r.stdout + r.stderr).strip(), load_s=0.0)
         return info
+    if not gpu:
+        info["pin_start"] = pin_cpus(name, cpuset_for(profile, slot))
     info.update(wait_ready(name, port, timeout_s))
+    if not gpu:
+        info["pin_after_load"] = pin_cpus(name, cpuset_for(profile, slot))
     return info
 
 
@@ -216,6 +244,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     u.add_argument("--load-flags", default=DEFAULT_LOAD_FLAGS,
                    help=f"weights loading option (default {DEFAULT_LOAD_FLAGS!r}; use '--no-mmap' on builds without it)")
     u.add_argument("--cache-type", default="f16")
+    u.add_argument("--network", help="docker network to join (the benchmark container reaches the server by name)")
     u.add_argument("--timeout", type=float, default=600.0)
     u.add_argument("--dry-run", action="store_true", help="print the docker command without running it")
 
@@ -228,7 +257,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         prof = load_profiles(args.profiles)[args.profile]
         info = up(prof, args.model, args.mmproj, args.ctx, name=args.name, port=args.port, slot=args.slot,
                   gpu=args.gpu, image=args.image, server_args=args.server_args, load_flags=args.load_flags,
-                  cache_type=args.cache_type, timeout_s=args.timeout, dry_run=args.dry_run)
+                  cache_type=args.cache_type, timeout_s=args.timeout, dry_run=args.dry_run, network=args.network)
         print(json.dumps(info, indent=2))
         return 0 if info.get("status") in ("ok", "dry_run") else 3
     if args.cmd == "peak":
