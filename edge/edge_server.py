@@ -193,7 +193,8 @@ def _parse_status_kb(text: str, key: str) -> Optional[float]:
 _PEAK_SH = (
     "for p in /proc/[0-9]*; do if grep -aq llama-server $p/cmdline 2>/dev/null; then cat $p/status; break; fi; done; "
     "echo '--cgroup--'; "
-    "cat /sys/fs/cgroup/memory.peak 2>/dev/null || cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes 2>/dev/null"
+    "(cat /sys/fs/cgroup/memory.peak 2>/dev/null || cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes 2>/dev/null); "
+    "true"  # exit 0 even when the cgroup file does not exist (rootless Docker): VmHWM is the value that matters
 )
 
 
@@ -202,7 +203,7 @@ def peak(name: str) -> dict[str, Any]:
     cgroup_peak_mib: peak of the whole container, includes file cache; higher, not comparable with a phone."""
     r = _run([DOCKER, "exec", name, "sh", "-c", _PEAK_SH])
     out: dict[str, Any] = {"name": name, "vmhwm_mib": None, "vmrss_mib": None, "cgroup_peak_mib": None}
-    if r.returncode != 0:
+    if r.returncode != 0 or "--cgroup--" not in r.stdout:
         out["error"] = (r.stderr or r.stdout).strip()[-300:]
         return out
     status, _, cg = r.stdout.partition("--cgroup--")
