@@ -6,7 +6,7 @@
 env_url: http://localhost:4173
 models_dir: /home/perreon/edge_models
 profiles_file: edge/profiles.yaml
-profiles: [ram12-permissive, ram8-permissive, ram6-permissive, ram12-strict, ram8-strict, ram6-strict]
+profiles: [ram12-permissive, ram8-permissive, ram6-permissive, ram12-strict, ram8-strict, ram6-strict, phone-a26]
 
 bench_image: mobilegym_full:latest
 docker_network: edgenet

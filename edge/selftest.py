@@ -80,10 +80,10 @@ def test_profiles() -> None:
     p = load_profiles()
     got = {k: v.budget_mib for k, v in p.items()}
     exp = {"unlimited": None, "ram12-permissive": 6144, "ram8-permissive": 4096, "ram6-permissive": 3072,
-           "ram12-strict": 1228, "ram8-strict": 819, "ram6-strict": 614}
+           "ram12-strict": 1228, "ram8-strict": 819, "ram6-strict": 614, "phone-a26": 1924}
     assert got == exp, got
     assert all(v.cores == 4 for v in p.values())
-    ok("profili", "budget 6144/4096/3072/1228/819/614 MiB")
+    ok("profili", "budget 6144/4096/3072/1228/819/614 MiB, A26 misurato 1924 MiB")
 
 
 def test_memory(td: Path) -> None:
