@@ -40,6 +40,13 @@ profiles:
     dram_mib: 6144
     policy: strict
     cores: 4
+  # Samsung Galaxy A26 5G (Exynos 1380, 6 GB): MemAvailable after reboot and "Close all", max of 10 readings
+  # (8 Oct 2026). MemTotal 5427 MiB; swap 8 GiB (RAM Plus), about 2 GiB already in use. Cores = the 4 Cortex-A78.
+  - id: phone-a26
+    dram_mib: 5427
+    policy: measured
+    ram_budget_mib: 1924
+    cores: 4
 
 # Measured profile example (paste the output of edge/android/measure_phone.sh, fix "cores"):
 #  - id: phone-test
