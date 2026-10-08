@@ -1,0 +1,52 @@
+# Runs with the memory limit of each profile, at the context measured in the reference runs (rounded up to 1024).
+# One short task: the memory peak is reached with the first screenshot, so a long episode adds nothing.
+# Pairs whose lower bound exceeds the budget are skipped at once (skip_lower_bound); OOM runs end in seconds.
+#   nohup bash edge/run_limits.sh > /home/perreon/edge_limits.log 2>&1 &
+
+env_url: http://localhost:4173
+models_dir: /home/perreon/edge_models
+profiles_file: edge/profiles.yaml
+profiles: [ram12-permissive, ram8-permissive, ram6-permissive, ram12-strict, ram8-strict, ram6-strict]
+
+bench_image: mobilegym_full:latest
+docker_network: edgenet
+bench_cores: "24-31"
+slot: 5                                   # server on cores 20-23
+
+bench_args: >-
+  --task-ids sms.OpenConversationBySender --sample-n 1 --sample-seed 0 --preset paper --judge-mode state --temperature 0
+
+parallel: 1
+infer_timeout: 3600
+load_timeout: 900
+server_image: ghcr.io/ggml-org/llama.cpp:server
+server_args: "--jinja"
+load_flags: "--load-mode none"
+
+models:
+  - id: qwen35-0.8b-q4km-json-img-gen
+    gguf: Qwen3.5-0.8B-Q4_K_M.gguf
+    mmproj: Qwen3.5-0.8B-mmproj-F16.gguf
+    model_name: qwen3.5-0.8b
+    agent: generic_text
+    bench_args: "--obs json --obs-image"
+    ctx: 9216
+    server_args: >-
+      --jinja --chat-template-kwargs '{"enable_thinking":false}'
+
+  - id: qwen35-2b-q4km-screenshot-gen
+    gguf: Qwen3.5-2B-Q4_K_M.gguf
+    mmproj: Qwen3.5-2B-mmproj-F16.gguf
+    model_name: qwen3.5-2b
+    agent: generic_v2
+    ctx: 7168
+    server_args: >-
+      --jinja --chat-template-kwargs '{"enable_thinking":false}'
+
+  - id: qwen3vl-4b-q4km-screenshot-gen
+    gguf: Qwen3VL-4B-Instruct-Q4_K_M.gguf
+    mmproj: mmproj-Qwen3VL-4B-Instruct-F16.gguf
+    model_name: qwen3-vl-4b
+    agent: generic_v2
+    ctx: 8192
+    server_args: "--jinja"
