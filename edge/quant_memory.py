@@ -165,6 +165,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--port", type=int, default=8085)
     ap.add_argument("--server-args", default="--jinja")
     ap.add_argument("--load-flags", default=edge_server.DEFAULT_LOAD_FLAGS)
+    ap.add_argument("--delete-after", action="store_true",
+                    help="delete each level's GGUF after it has been measured successfully (saves disk space)")
     ap.add_argument("--out", default=str(Path(__file__).resolve().parent / "results" / "quant_memory.csv"))
     args = ap.parse_args(argv)
 
@@ -194,6 +196,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             row = {"repo": args.repo, "file": fname, "level": lv, "ctx": args.ctx, "status": "error",
                    "note": f"{type(e).__name__}: {e}"[:160]}
         append(out, row)
+        if args.delete_after and row.get("status") == "ok":
+            gguf.unlink(missing_ok=True)
         print(f"[done] {fname}: {row['status']}  rest={row.get('rest_vmhwm_mib', '')} MiB  "
               f"image={row.get('image_vmhwm_mib', '')} MiB", flush=True)
     return 0
