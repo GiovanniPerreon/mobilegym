@@ -183,8 +183,16 @@ def main(argv: Optional[list[str]] = None) -> int:
             continue
         gguf = download(args.repo, f, models_dir)
         print(f"[run ] {fname} ctx {args.ctx}", flush=True)
-        row = measure(args.repo, lv, gguf, mmproj, args.ctx, args.profile, args.slot, args.port,
-                      args.server_args, args.load_flags)
+        try:
+            row = measure(args.repo, lv, gguf, mmproj, args.ctx, args.profile, args.slot, args.port,
+                          args.server_args, args.load_flags)
+        except Exception as e:  # one level failing must not stop the ladder; the row is retried on restart
+            try:
+                edge_server.down("edge-quant")
+            except Exception:
+                pass
+            row = {"repo": args.repo, "file": fname, "level": lv, "ctx": args.ctx, "status": "error",
+                   "note": f"{type(e).__name__}: {e}"[:160]}
         append(out, row)
         print(f"[done] {fname}: {row['status']}  rest={row.get('rest_vmhwm_mib', '')} MiB  "
               f"image={row.get('image_vmhwm_mib', '')} MiB", flush=True)
