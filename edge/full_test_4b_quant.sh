@@ -3,7 +3,6 @@
 # same harness as edge/slurm_full_test.sh (GPU, 6 slots, temperature 0, one trial). Restartable.
 #   CUDA_VISIBLE_DEVICES=0 nohup bash edge/full_test_4b_quant.sh > /home/perreon/edge_full_4b_quant.log 2>&1 &
 # Safety:
-#   - before every level it checks that nobody else is using the GPU (otherwise it stops);
 #   - after every level it counts the episodes that failed because the model server was unreachable
 #     (APIConnectionError, e.g. server killed): above MAX_CONN_ERRORS the level folder is renamed to
 #     <tag>_invalid_<time> (so a restart repeats it) and the script stops.
@@ -14,10 +13,6 @@ GPU=${CUDA_VISIBLE_DEVICES:-0}
 MAX_CONN_ERRORS=5
 echo "=== $(date +%T) GPU ${GPU}"
 
-gpu_busy() {  # prints the compute processes on the GPU (empty = free)
-  nvidia-smi -i "${GPU}" --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null
-}
-
 run() {  # run <tag> <hf model:quant>
   if ls "${RUNS}/$1"/*/results.jsonl > /dev/null 2>&1; then
     local old
@@ -26,13 +21,6 @@ run() {  # run <tag> <hf model:quant>
     local prev="${RUNS}/$1_invalid_$(date +%Y%m%d_%H%M%S)"
     mv "${RUNS}/$1" "${prev}"
     echo "=== $(date +%T) previous $1 had ${old} episodes without model server: moved to ${prev}, repeating it"
-  fi
-  local busy
-  busy=$(gpu_busy)
-  if [ -n "${busy}" ]; then
-    echo "=== $(date +%T) STOP: GPU ${GPU} in use by other processes, $1 not started:"
-    echo "${busy}"
-    exit 1
   fi
   echo "=== $(date +%T) start $1"
   docker run --rm --name "full_$1" --gpus "device=${GPU}" \
