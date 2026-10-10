@@ -171,8 +171,12 @@ def up(profile: Profile, model: str, mmproj: Optional[str], ctx: int, *, name: O
     if dry_run:
         info["status"] = "dry_run"
         return info
-    _run([DOCKER, "rm", "-f", name])
-    r = _run(cmd)
+    _run([DOCKER, "rm", "-f", name], timeout=600)
+    try:  # docker can be slow to answer when the daemon is busy (another container stopping): wait longer
+        r = _run(cmd, timeout=600)
+    except subprocess.TimeoutExpired:
+        info.update(status="load_failed", logs="docker run did not answer within 600 s", load_s=0.0)
+        return info
     if r.returncode != 0:
         info.update(status="load_failed", logs=(r.stdout + r.stderr).strip(), load_s=0.0)
         return info
