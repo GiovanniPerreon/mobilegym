@@ -12,7 +12,7 @@ Source: `bench_env/config.py`. Internal-only fields (`split_task_ids` / `run_dir
 
 | Field | Default | Description |
 |---|---|---|
-| `agent` | — | Agent identifier (`autoglm` / `gelab` / `generic` / `generic_v2` / `human` / `venus` / `gui_owl` / `uitars` / `mai_ui`) |
+| `agent` | — | Agent identifier (`autoglm` / `gelab` / `generic` / `generic_v2` / `generic_text` / `generic_choice` / `laya_choice` / `human` / `venus` / `gui_owl` / `uitars` / `mai_ui`) |
 | `model_name` | — | LLM model name |
 | `model_base_url` | — | LLM API base URL |
 | `model_api_key` | — | LLM API key (optional for local endpoints) |
@@ -264,6 +264,40 @@ Differences: no route info; no `INFO`; supports `DOUBLE_TAP` and `ANSWER`; answe
 | `ANSWER` | `ANSWER` | `value` / `text` |
 | `COMPLETE` / `FINISH` | `COMPLETE` | `return` / `message` |
 | `ABORT` | `ABORT` | `value` / `reason` |
+
+### GenericChoiceAgent (`agent/generic_choice.py`, "choice" action mode)
+
+The model does not write the action: each step it receives the numbered list of the actions that are possible on the screen (`env/candidates.py`, same for every observation format) and answers with a number. The chosen entry is executed as the normal action above, so environment, judge and metrics do not change.
+
+```bash
+# screenshot + candidate list
+python -m bench_env.run --agent generic_choice --env-url http://... --model-base-url ... --model-name ...
+# text only (text-only models) / hybrid with the screenshot
+python -m bench_env.run --agent generic_choice --obs json ...
+python -m bench_env.run --agent generic_choice --obs json --obs-image ...
+```
+
+- `run.py` sets `BENCH_ACTION_MODE=choice`, which makes the env fill `Observation.candidates` at every step.
+- The choice call uses temperature 0 and asks for logprobs. By default the answer is constrained to the valid numbers with a llama.cpp GBNF grammar (`BENCH_CHOICE_CONSTRAINT=grammar`; use `guided_choice` for vLLM or `none` to disable). The server must support `logprobs`; if it returns none, `p` is `None`.
+- `TYPE` and `ANSWER` need text, so after choosing them a second generative call asks for the text (counted in `calls`).
+- Per step, `Action.explain` holds `choice=<id> n=<list length> p=<probability of the chosen entry> calls=<LLM calls>`; `p` is the probability of the token sequence that spells the number, without the decision to stop.
+- Not in the list: `DRAG` (excluded in this first version).
+
+### LayaChoiceAgent (`agent/laya_choice.py`, dedicated decider)
+
+Same candidate list, same mapping to actions and same text step as `generic_choice` (it is a subclass); only the decision changes. [Laya](https://huggingface.co/convaiinnovations/laya) is an encoder with a decision head (no text generation) that scores the options in one forward pass, through the `laya` Python package (`pip install laya`).
+
+```bash
+python -m bench_env.run --agent laya_choice --obs a11y --env-url http://... --model-base-url ... --model-name ...
+python -m bench_env.run --agent laya_choice --obs json ...
+```
+
+- Only `--obs a11y|json`, without `--obs-image`: Laya has no image input and its context (512 tokens for the root checkpoint, 1,024 for `laya-typed-decisions`) is too short for HTML. `run.py` refuses other combinations.
+- Task, last 5 actions, screen text and option names must fit the context (`BENCH_LAYA_CTX`, default 1024, budgeted in characters). The screen text is truncated first, then tap entries at the end of the list are left out; the number of left-out entries is in `Action.raw_response` as `dropped=<k>`.
+- `--model-base-url/--model-name` still point to a generative model: it only writes the text of `TYPE`/`ANSWER` steps (`calls=1` on those steps, `calls=0` otherwise).
+- `BENCH_LAYA_HISTORY` (default 5; `0` = no previous actions in the state) and `BENCH_LAYA_DESC` (`template` default, or `label` = the description is the option name): Laya matches option names against the text it reads, so repeated action names in the history or template words can pull it into repeating an action; these switches test that.
+- `BENCH_LAYA_MODEL` / `BENCH_LAYA_SUBFOLDER` choose the checkpoint (`laya.load(repo, subfolder=...)`); by default `laya.Router()` picks it.
+- `p` is read from the answer if the package returns probabilities, else `None`. The `laya` calls follow the Hugging Face model card and have not been run against the real package yet (`_LayaBackend` is the only place to adapt).
 
 ### VenusAgent (`agent/venus.py`)
 

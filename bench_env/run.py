@@ -11,6 +11,9 @@ from bench_env.agent import list_agents
 from bench_env.logger import configure_logging
 from bench_env.task_listing import list_tasks
 
+PAPER_PRESET = {"max_tokens": 4096, "delay_after_action": 0.8, "loop_detect": 10,
+                "temperature": 0.1, "top_p": 0.95, "infer_timeout": 300.0}
+
 
 def create_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Mobile GUI Agent Benchmark")
@@ -169,6 +172,17 @@ def create_parser() -> argparse.ArgumentParser:
 
     # Agent
     p.add_argument("--agent", choices=list_agents(), default="generic_v2")
+    p.add_argument("--preset", choices=["paper"], default=None,
+                   help="'paper': inference settings of the MobileGym paper (max_tokens 4096, delay 0.8 s, "
+                        "loop-detect 10, temperature 0.1, top_p 0.95, infer-timeout 300). Applied only to "
+                        "options left at their default; explicit values win (with a warning).")
+    p.add_argument("--obs", choices=["screenshot", "html", "a11y", "json"], default=None,
+                   help="Observation format for --agent generic_text / generic_choice: html (visible HTML), "
+                        "a11y (accessibility tree), json (view JSON from data-trigger). "
+                        "Default: screenshot only (unchanged). generic_choice also accepts 'screenshot'.")
+    p.add_argument("--obs-image", action="store_true",
+                   help="Hybrid format: also send the screenshot (with --agent generic_text / generic_choice "
+                        "and --obs html|a11y|json; generic_choice without --obs-image sends no image).")
     p.add_argument("--model-base-url", type=str)
     p.add_argument("--model-api-key", type=str, default="")
     p.add_argument("--model-name", type=str)
@@ -397,7 +411,41 @@ async def async_main(args) -> int:
 
 
 def main(argv=None) -> int:
-    args = create_parser().parse_args(argv)
+    parser = create_parser()
+    args = parser.parse_args(argv)
+    if args.preset == "paper":
+        for key, val in PAPER_PRESET.items():
+            cur, dflt = getattr(args, key), parser.get_default(key)
+            if cur == dflt:
+                setattr(args, key, val)
+            elif cur != val:
+                print(f"[WARN] --preset paper wants {key}={val} but you passed {cur}; keeping {cur}")
+        print("[preset paper] " + " ".join(f"{k}={getattr(args, k)}" for k in PAPER_PRESET))
+    if args.obs:
+        os.environ["BENCH_OBS"] = args.obs
+    if args.obs_image:
+        os.environ["BENCH_OBS_IMAGE"] = "1"
+    if args.agent in ("generic_choice", "laya_choice", "d1_choice"):
+        os.environ["BENCH_ACTION_MODE"] = "choice"
+    else:
+        os.environ.pop("BENCH_ACTION_MODE", None)
+    text_obs = os.environ.get("BENCH_OBS", "") in ("html", "a11y", "json")
+    if args.agent == "generic_text" and not text_obs:
+        print("[ERROR] --agent generic_text requires --obs html|a11y|json")
+        return 2
+    if args.agent not in ("generic_text", "generic_choice", "laya_choice", "d1_choice") and text_obs:
+        print("[ERROR] --obs html|a11y|json requires --agent generic_text, generic_choice, laya_choice or d1_choice")
+        return 2
+    if args.agent == "laya_choice" and (os.environ.get("BENCH_OBS", "") not in ("a11y", "json")
+                                        or os.environ.get("BENCH_OBS_IMAGE", "")):
+        print("[ERROR] --agent laya_choice requires --obs a11y|json and no --obs-image "
+              "(Laya has no image input and its context is too short for html)")
+        return 2
+
+    if args.agent == "d1_choice" and os.environ.get("BENCH_OBS", "") == "html":
+        print("[ERROR] --agent d1_choice supports the screenshot and --obs a11y|json "
+              "(html does not fit the 896-token budget of d1 with images)")
+        return 2
     
     configure_logging(quiet=args.quiet)
 
