@@ -429,7 +429,7 @@ def main(argv=None) -> int:
     if args.obs_image:
         os.environ["BENCH_OBS_IMAGE"] = "1"
     # Action mode is read by the env too: the choice agent needs the candidate list on every observation.
-    if args.agent in ("generic_choice", "laya_choice"):
+    if args.agent in ("generic_choice", "laya_choice", "d1_choice"):
         os.environ["BENCH_ACTION_MODE"] = "choice"
     else:
         os.environ.pop("BENCH_ACTION_MODE", None)
@@ -437,13 +437,18 @@ def main(argv=None) -> int:
     if args.agent == "generic_text" and not text_obs:
         print("[ERROR] --agent generic_text requires --obs html|a11y|json")
         return 2
-    if args.agent not in ("generic_text", "generic_choice", "laya_choice") and text_obs:
-        print("[ERROR] --obs html|a11y|json requires --agent generic_text, generic_choice or laya_choice")
+    if args.agent not in ("generic_text", "generic_choice", "laya_choice", "d1_choice") and text_obs:
+        print("[ERROR] --obs html|a11y|json requires --agent generic_text, generic_choice, laya_choice or d1_choice")
         return 2
     if args.agent == "laya_choice" and (os.environ.get("BENCH_OBS", "") not in ("a11y", "json")
                                         or os.environ.get("BENCH_OBS_IMAGE", "")):
         print("[ERROR] --agent laya_choice requires --obs a11y|json and no --obs-image "
               "(Laya has no image input and its context is too short for html)")
+        return 2
+
+    if args.agent == "d1_choice" and os.environ.get("BENCH_OBS", "") == "html":
+        print("[ERROR] --agent d1_choice supports the screenshot and --obs a11y|json "
+              "(html does not fit the 896-token budget of d1 with images)")
         return 2
 
     configure_logging(quiet=args.quiet)
