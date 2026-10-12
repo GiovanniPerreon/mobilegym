@@ -46,13 +46,17 @@ run() {  # run <tag> <hf model:quant> <llama args> <agent> <observation args>
   echo "=== $(date +%T) ok $1 (${n} connection errors)"
 }
 
-# 4B first (the configuration with real signal: 8.0% without a limit), then 0.8B (the only one near the A26)
+# Screenshot only for every model (same observation everywhere, the one available on a real phone).
+# 4B first (the configuration with real signal: 8.0% without a limit), then 0.8B (the only one near the A26):
+# the 0.8B screenshot run without a limit is the reference for its two limited runs (full_q4 has it with json).
 run qwen3vl4b_q4km_screenshot_gen_img1024 "Qwen/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M" \
   "--jinja -np 6 --image-max-tokens 1024" generic_v2 ""
 run qwen3vl4b_q4km_screenshot_gen_img512 "Qwen/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M" \
   "--jinja -np 6 --image-max-tokens 512" generic_v2 ""
-run qwen35_08b_q4km_json_img_gen_img1024 "unsloth/Qwen3.5-0.8B-GGUF:Q4_K_M" \
-  "--jinja -np 6 --image-max-tokens 1024 ${NOTHINK}" generic_text "--obs json --obs-image"
-run qwen35_08b_q4km_json_img_gen_img512 "unsloth/Qwen3.5-0.8B-GGUF:Q4_K_M" \
-  "--jinja -np 6 --image-max-tokens 512 ${NOTHINK}" generic_text "--obs json --obs-image"
+run qwen35_08b_q4km_screenshot_gen "unsloth/Qwen3.5-0.8B-GGUF:Q4_K_M" \
+  "--jinja -np 6 ${NOTHINK}" generic_v2 ""
+run qwen35_08b_q4km_screenshot_gen_img1024 "unsloth/Qwen3.5-0.8B-GGUF:Q4_K_M" \
+  "--jinja -np 6 --image-max-tokens 1024 ${NOTHINK}" generic_v2 ""
+run qwen35_08b_q4km_screenshot_gen_img512 "unsloth/Qwen3.5-0.8B-GGUF:Q4_K_M" \
+  "--jinja -np 6 --image-max-tokens 512 ${NOTHINK}" generic_v2 ""
 echo "=== $(date +%T) finished"
