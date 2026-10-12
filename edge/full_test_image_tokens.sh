@@ -2,7 +2,7 @@
 # Success on the full test split (256 tasks) with fewer tokens per screenshot (llama-server --image-max-tokens),
 # same harness as edge/slurm_full_test.sh (GPU, 6 slots, temperature 0, one trial). Restartable.
 # The reference without a limit (about 2550 tokens for a 1080 x 2400 screenshot) is in mobilegym_runs/full_q4.
-# Phone (A26, Qwen3.5-0.8B Q4_K_M, one screenshot): 2550 tokens 93 s, 1024 tokens 21 s, 512 tokens 8 s.
+# Phone (A26, Qwen3.5-0.8B Q4_K_M, one screenshot, cold): 2550 tokens about 2 min, 1024 tokens 27 s, 512 tokens 13 s.
 #   CUDA_VISIBLE_DEVICES=0 nohup bash edge/full_test_image_tokens.sh > /home/perreon/edge_full_imgtok.log 2>&1 &
 # Safety: after every run it counts the episodes that failed because the model server was unreachable
 # (APIConnectionError, e.g. server killed or flag not supported): above MAX_CONN_ERRORS the folder is renamed to
@@ -12,7 +12,6 @@ RUNS=/home/perreon/mobilegym_runs/full_imgtok
 mkdir -p "${RUNS}"
 GPU=${CUDA_VISIBLE_DEVICES:-0}
 MAX_CONN_ERRORS=5
-NOTHINK="--chat-template-kwargs '{\"enable_thinking\":false}'"
 echo "=== $(date +%T) GPU ${GPU}"
 
 conn_errors() { cat "${RUNS}/$1"/*/errors.jsonl 2>/dev/null | grep -c "APIConnectionError"; }
@@ -46,17 +45,12 @@ run() {  # run <tag> <hf model:quant> <llama args> <agent> <observation args>
   echo "=== $(date +%T) ok $1 (${n} connection errors)"
 }
 
-# Screenshot only for every model (same observation everywhere, the one available on a real phone).
-# 4B first (the configuration with real signal: 8.0% without a limit), then 0.8B (the only one near the A26):
-# the 0.8B screenshot run without a limit is the reference for its two limited runs (full_q4 has it with json).
+# Screenshot only (the observation available on a real phone), Qwen3-VL-4B only: it is the only model with
+# real signal (8.0% without a limit). The 0.8B is not run here: it solves no task in any configuration, so
+# fewer image tokens cannot show anything about success; its memory and latency per image budget were
+# measured on the phone instead.
 run qwen3vl4b_q4km_screenshot_gen_img1024 "Qwen/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M" \
   "--jinja -np 6 --image-max-tokens 1024" generic_v2 ""
 run qwen3vl4b_q4km_screenshot_gen_img512 "Qwen/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M" \
   "--jinja -np 6 --image-max-tokens 512" generic_v2 ""
-run qwen35_08b_q4km_screenshot_gen "unsloth/Qwen3.5-0.8B-GGUF:Q4_K_M" \
-  "--jinja -np 6 ${NOTHINK}" generic_v2 ""
-run qwen35_08b_q4km_screenshot_gen_img1024 "unsloth/Qwen3.5-0.8B-GGUF:Q4_K_M" \
-  "--jinja -np 6 --image-max-tokens 1024 ${NOTHINK}" generic_v2 ""
-run qwen35_08b_q4km_screenshot_gen_img512 "unsloth/Qwen3.5-0.8B-GGUF:Q4_K_M" \
-  "--jinja -np 6 --image-max-tokens 512 ${NOTHINK}" generic_v2 ""
 echo "=== $(date +%T) finished"
