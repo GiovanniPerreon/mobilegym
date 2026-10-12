@@ -16,6 +16,8 @@ from typing import Any, Optional, Tuple
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
 
 from bench_env.logger import get_logger
+from bench_env.env.text_view import extract_view, obs_mode
+from bench_env.env.candidates import REPORT_APPS, build_candidates, choice_mode
 from bench_env.env.base import Action, ActionType, BaseMobileEnv, Observation, StepResult
 from bench_env.task import TaskRegistry, JudgeInput, JudgeResult, BaseTask
 
@@ -349,6 +351,7 @@ class MobileGymEnv(BaseMobileEnv):
         "答题卡": "answer_sheet",
         "Answer Sheet": "answer_sheet",
         "AnswerSheet": "answer_sheet",
+        "healthmonitor": "healthmonitor",
     }
 
     # Valid coordinate space options
@@ -572,12 +575,6 @@ class MobileGymEnv(BaseMobileEnv):
             headers = dict(response.headers)
             headers.pop("x-frame-options", None)
             headers.pop("X-Frame-Options", None)
-            headers.pop("cross-origin-resource-policy", None)
-            headers.pop("Cross-Origin-Resource-Policy", None)
-            headers.pop("cross-origin-embedder-policy", None)
-            headers.pop("Cross-Origin-Embedder-Policy", None)
-            headers.pop("cross-origin-opener-policy", None)
-            headers.pop("Cross-Origin-Opener-Policy", None)
             for key in ["content-security-policy", "Content-Security-Policy"]:
                 if key in headers:
                     csp = re.sub(r"frame-ancestors[^;]*;?\s*", "", headers[key])
@@ -994,11 +991,29 @@ class MobileGymEnv(BaseMobileEnv):
                 state = await self._get_state() or {}
         else:
             state = {}
+        text_view: dict[str, Any] = {}
+        fmt = obs_mode()
+        if fmt:
+            with sw.phase("text_view"):
+                try:
+                    text_view = await extract_view(self.page, fmt, route)
+                except Exception as e:
+                    logger.warning(f"text view extraction failed: {type(e).__name__}: {e}")
+        candidates: list[dict[str, Any]] = []
+        if choice_mode():
+            with sw.phase("candidates"):
+                try:
+                    awake = sorted(a for a in self._KNOWN_APP_IDS if a in REPORT_APPS)
+                    candidates = await build_candidates(self.page, awake)
+                except Exception as e:
+                    logger.warning(f"candidate extraction failed: {type(e).__name__}: {e}")
         return Observation(
             screenshot_bytes=screenshot_bytes,
             route=route,
             state=state,
             step_idx=self._step_count,
+            text_view=text_view,
+            candidates=candidates,
         )
 
     def register_handler(self, action_type: ActionType, handler_cls: type[ActionHandler]) -> None:
