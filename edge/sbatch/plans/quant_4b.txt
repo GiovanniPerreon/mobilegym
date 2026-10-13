@@ -1,0 +1,10 @@
+# Quantization ladder of Qwen3-VL-4B (unsloth GGUF), screenshot, generative, full test split.
+# tag | model | llama-server args | agent | observation | temperature | episodes per task | slots
+qwen3vl4b_q8_0_screenshot_gen   | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q8_0       | --jinja | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q6_k_screenshot_gen   | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q6_K       | --jinja | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q5_k_m_screenshot_gen | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q5_K_M     | --jinja | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_screenshot_gen | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M     | --jinja | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q3_k_m_screenshot_gen | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q3_K_M     | --jinja | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q2_k_xl_screenshot_gen | unsloth/Qwen3-VL-4B-Instruct-GGUF:UD-Q2_K_XL | --jinja | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_iq2_xxs_screenshot_gen | unsloth/Qwen3-VL-4B-Instruct-GGUF:UD-IQ2_XXS | --jinja | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_iq1_m_screenshot_gen  | unsloth/Qwen3-VL-4B-Instruct-GGUF:UD-IQ1_M   | --jinja | generic_v2 | | 0 | 1 | 6
