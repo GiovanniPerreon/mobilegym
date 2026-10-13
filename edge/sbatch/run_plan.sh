@@ -1,7 +1,9 @@
 #!/bin/bash
 # One run of a plan file on the GPU that Slurm assigns (job array: one array index = one line of the plan).
-# Submitted by edge/sbatch/submit.sh, never run by hand. The node can be any node with the requested GPU, so on every
-# node there must be: this repository in /home/perreon/mobilegym-edge and the image mobilegym_full:latest.
+# Submitted by edge/sbatch/submit.sh, never run by hand. Slurm picks the node, so the job prepares it if needed:
+#   - repository missing in /home/perreon/mobilegym-edge: cloned (branch edge-device-simulation), else fast-forwarded;
+#   - image mobilegym_full:latest missing: built from build/Dockerfile (about 20-30 min, once per node; a lock file
+#     makes a second job on the same node wait for the first build instead of building again).
 #
 # Plan line (fields separated by |, lines starting with # are ignored):
 #   tag | Hugging Face model:quant | extra llama-server args | agent | observation args | temperature | episodes per task | slots
@@ -10,9 +12,22 @@
 # jobs running at the same time (submit.sh limits them with the array throttle).
 #SBATCH -N 1
 #SBATCH --job-name=mobilegym
-#SBATCH --output=/home/perreon/mobilegym-edge/slurm_logs/%x_%A_%a.out
 set -u
-PLAN="$1"
+REPO=/home/perreon/mobilegym-edge
+IMAGE=mobilegym_full:latest
+if [ ! -d "${REPO}/.git" ]; then
+  git clone -q -b edge-device-simulation https://github.com/GiovanniPerreon/mobilegym "${REPO}" || exit 1
+else
+  git -C "${REPO}" pull -q --ff-only || echo "[warn] could not fast-forward ${REPO}, using it as it is"
+fi
+(
+  flock 9
+  if ! docker image inspect "${IMAGE}" > /dev/null 2>&1; then
+    echo "=== $(date '+%F %T') building ${IMAGE} on $(hostname)"
+    docker build -q -f "${REPO}/build/Dockerfile" -t "${IMAGE}" "${REPO}/build" || exit 1
+  fi
+) 9> /home/perreon/.mobilegym_build.lock || { echo "=== image build failed on $(hostname)"; exit 1; }
+PLAN="${REPO}/$1"
 LINE=$(grep -v '^[[:space:]]*#' "${PLAN}" | grep -v '^[[:space:]]*$' | sed -n "${SLURM_ARRAY_TASK_ID}p")
 IFS='|' read -r TAG MODEL LLAMA_ARGS AGENT OBS_ARGS TEMPERATURE REPEAT_N SLOTS <<< "${LINE}"
 trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; echo "${s%"${s##*[![:space:]]}"}"; }
@@ -36,11 +51,11 @@ fi
 
 docker run --rm --name "${NAME}" --gpus "device=${CUDA_VISIBLE_DEVICES}" --memory=30g \
   -v "${RUNS}":/out -v "${CACHE}":/cache \
-  -v /home/perreon/mobilegym-edge/edge/full_test_bench.sh:/full_test_bench.sh:ro \
+  -v "${REPO}/edge/full_test_bench.sh":/full_test_bench.sh:ro \
   -e HF_HOME=/cache/hf -e MODEL="${MODEL}" -e CTX=$((SLOTS * 8192)) -e LLAMA_ARGS="${LLAMA_ARGS} -np ${SLOTS}" \
   -e BENCH_CTX=8192 -e BENCH_OBS_MAX_TOKENS=1448 -e TAG="${TAG}" -e SLOTS="${SLOTS}" -e AGENT="${AGENT}" \
   -e OBS_ARGS="${OBS_ARGS}" -e TEMPERATURE="${TEMPERATURE}" -e REPEAT_N="${REPEAT_N}" \
-  -e BENCH_CMD="bash /full_test_bench.sh" mobilegym_full:latest
+  -e BENCH_CMD="bash /full_test_bench.sh" "${IMAGE}"
 echo "=== $(date '+%F %T') end ${TAG} (exit $?)"
 
 n=$(conn_errors)
