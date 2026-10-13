@@ -42,6 +42,7 @@ echo "=== $(date '+%F %T') node $(hostname) GPU ${CUDA_VISIBLE_DEVICES} job ${SL
 
 cleanup() { docker rm -f "${NAME}" > /dev/null 2>&1; rm -rf "${CACHE}"; }
 trap cleanup EXIT
+trap "exit 143" TERM INT
 
 conn_errors() { cat "${RUNS}/${TAG}"/*/errors.jsonl 2>/dev/null | grep -c "APIConnectionError"; }
 if ls "${RUNS}/${TAG}"/*/results.jsonl > /dev/null 2>&1; then
