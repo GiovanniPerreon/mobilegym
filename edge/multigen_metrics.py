@@ -54,8 +54,8 @@ def step_signature(step: dict[str, Any], grid: int) -> tuple:
     if kind in ("TYPE", "ANSWER", "FINISH", "COMPLETE"):
         txt = data.get("value", data.get("text", data.get("answer", "")))
         arg = (arg, str(txt).strip().lower())
-    elif kind == "SWIPE":
-        arg = (_point_key(data, "start", grid), _point_key(data, "end", grid), data.get("direction"))
+    elif kind in ("SWIPE", "DRAG"):
+        arg = (_point_key(data, "point1", grid), _point_key(data, "point2", grid))
     return (route, kind, json.dumps(arg, sort_keys=True, default=str))
 
 
