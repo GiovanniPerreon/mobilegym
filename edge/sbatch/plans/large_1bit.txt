@@ -1,0 +1,5 @@
+# Larger models at the lowest quantization (about 1.75 bit per weight): does a bigger model at 1 bit beat the 4B?
+# 32B: 4 slots so that weights, projector and KV cache fit a 24 GB RTX 3090.
+# tag | model | llama-server args | agent | observation | temperature | episodes per task | slots
+qwen3vl8b_iq1_m_screenshot_gen  | unsloth/Qwen3-VL-8B-Instruct-GGUF:UD-IQ1_M  | --jinja | generic_v2 | | 0 | 1 | 6
+qwen3vl32b_iq1_m_screenshot_gen | unsloth/Qwen3-VL-32B-Instruct-GGUF:UD-IQ1_M | --jinja | generic_v2 | | 0 | 1 | 4
