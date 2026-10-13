@@ -35,7 +35,7 @@ from edge.memcheck import check
 LADDER = ["Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q4_K_S", "IQ4_XS", "Q3_K_M", "Q3_K_S", "IQ3_XXS",
           "Q2_K", "Q2_K_L", "Q2_K_XL", "IQ2_M", "IQ2_XXS", "IQ1_M", "IQ1_S"]
 FIELDS = ["repo", "file", "level", "file_mib", "mmproj", "ctx", "lower_bound_mib", "rest_vmhwm_mib",
-          "image_vmhwm_mib", "image_increase_mib", "load_s", "image_s", "status", "note"]
+          "image_vmhwm_mib", "image_increase_mib", "load_s", "image_s", "status", "note", "cache_type"]
 
 
 def level_of(filename: str) -> Optional[str]:
@@ -99,27 +99,34 @@ def image_request(port: int, width: int = 1080, height: int = 2400, timeout_s: f
     return round(time.time() - t0, 1)
 
 
-def done_keys(out: Path) -> set[tuple[str, str]]:
+def done_keys(out: Path) -> set[tuple[str, str, str, str]]:
+    """(file, ctx, mmproj, KV cache type) of the rows already measured; files written before the KV cache type
+    was recorded count as f16, the only type used then."""
     if not out.exists():
         return set()
     with open(out, encoding="utf-8") as f:
-        return {(r["file"], r["ctx"]) for r in csv.DictReader(f) if r.get("status") == "ok"}
+        return {(r["file"], r["ctx"], r.get("mmproj") or "", r.get("cache_type") or "f16")
+                for r in csv.DictReader(f) if r.get("status") == "ok"}
 
 
 def append(out: Path, row: dict[str, Any]) -> None:
     new = not out.exists()
     out.parent.mkdir(parents=True, exist_ok=True)
+    fields = FIELDS
+    if not new:  # keep the columns of an existing file (older files have no cache_type column)
+        with open(out, encoding="utf-8") as f:
+            fields = next(csv.reader(f), FIELDS) or FIELDS
     with open(out, "a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         if new:
             w.writeheader()
         w.writerow(row)
 
 
 def measure(repo: str, level: str, gguf: Path, mmproj: Optional[Path], ctx: int, profile_id: str, slot: int,
-            port: int, server_args: str, load_flags: str) -> dict[str, Any]:
+            port: int, server_args: str, load_flags: str, cache_type: str = "f16") -> dict[str, Any]:
     prof = load_profiles()[profile_id]
-    row: dict[str, Any] = {"repo": repo, "file": gguf.name, "level": level, "ctx": ctx,
+    row: dict[str, Any] = {"repo": repo, "file": gguf.name, "level": level, "ctx": ctx, "cache_type": cache_type,
                            "file_mib": round(gguf.stat().st_size / 2**20, 1), "mmproj": mmproj.name if mmproj else ""}
     try:
         _, rows = check(str(gguf), str(mmproj) if mmproj else None, ctx)
@@ -128,7 +135,7 @@ def measure(repo: str, level: str, gguf: Path, mmproj: Optional[Path], ctx: int,
         row["note"] = f"memcheck: {e}"
     name = "edge-quant"
     info = edge_server.up(prof, str(gguf), str(mmproj) if mmproj else None, ctx, name=name, port=port, slot=slot,
-                          server_args=server_args, load_flags=load_flags, timeout_s=900)
+                          server_args=server_args, load_flags=load_flags, cache_type=cache_type, timeout_s=900)
     row["load_s"] = info.get("load_s", "")
     if not info.get("ok"):
         edge_server.down(name)
@@ -155,7 +162,12 @@ def measure(repo: str, level: str, gguf: Path, mmproj: Optional[Path], ctx: int,
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", required=True, help="Hugging Face repository with the GGUF files")
-    ap.add_argument("--mmproj-file", help="vision projector file in the same repository (omit for text-only)")
+    ap.add_argument("--mmproj-file", help="vision projector file (omit for text-only); 'match:TEXT' picks the only "
+                                          "mmproj file of --mmproj-repo whose name contains TEXT, e.g. match:Q8_0")
+    ap.add_argument("--mmproj-repo", help="repository of the projector (default: --repo)")
+    ap.add_argument("--cache-type", default="f16",
+                    help="KV cache type for keys and values (-ctk/-ctv), e.g. q8_0 or q4_0; quantized values need "
+                         "flash attention: add '-fa on' to --server-args")
     ap.add_argument("--ctx", type=int, required=True, help="context of the configuration (from the reference run)")
     ap.add_argument("--levels", help="comma-separated subset of levels (default: all found in the ladder)")
     ap.add_argument("--list", action="store_true", help="only list the levels found and exit")
@@ -176,24 +188,37 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.list:
         return 0
     models_dir, out = Path(args.models_dir), Path(args.out)
-    mmproj = download(args.repo, args.mmproj_file, models_dir) if args.mmproj_file else None
+    mmproj = None
+    if args.mmproj_file:
+        mrepo = args.mmproj_repo or args.repo
+        mfile = args.mmproj_file
+        if mfile.startswith("match:"):
+            want = mfile[len("match:"):].lower()
+            found = [f for f in list_files(mrepo) if f.rsplit("/", 1)[-1].lower().startswith("mmproj") and want in f.lower()]
+            if len(found) != 1:
+                print(f"[error] {mrepo}: {len(found)} mmproj files match {want!r}: {found}", flush=True)
+                return 1
+            mfile = found[0]
+        mmproj = download(mrepo, mfile, models_dir)
+        print(f"[mmproj] {mrepo}/{mfile}", flush=True)
     done = done_keys(out)
     for lv, f in levels:
         fname = f.rsplit("/", 1)[-1]
-        if (fname, str(args.ctx)) in done:
+        if (fname, str(args.ctx), mmproj.name if mmproj else "", args.cache_type) in done:
             print(f"[skip] {fname}: already measured", flush=True)
             continue
         gguf = download(args.repo, f, models_dir)
         print(f"[run ] {fname} ctx {args.ctx}", flush=True)
         try:
             row = measure(args.repo, lv, gguf, mmproj, args.ctx, args.profile, args.slot, args.port,
-                          args.server_args, args.load_flags)
+                          args.server_args, args.load_flags, args.cache_type)
         except Exception as e:  # one level failing must not stop the ladder; the row is retried on restart
             try:
                 edge_server.down("edge-quant")
             except Exception:
                 pass
-            row = {"repo": args.repo, "file": fname, "level": lv, "ctx": args.ctx, "status": "error",
+            row = {"repo": args.repo, "file": fname, "level": lv, "ctx": args.ctx, "cache_type": args.cache_type,
+                   "mmproj": mmproj.name if mmproj else "", "status": "error",
                    "note": f"{type(e).__name__}: {e}"[:160]}
         append(out, row)
         if args.delete_after and row.get("status") == "ok":
