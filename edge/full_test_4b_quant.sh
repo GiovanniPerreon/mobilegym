@@ -26,7 +26,7 @@ run() {  # run <tag> <hf model:quant>
   docker run --rm --name "full_$1" --gpus "device=${GPU}" \
     -v "${RUNS}":/out -v /home/perreon/llama_cache:/cache \
     -v /home/perreon/mobilegym-edge/edge/full_test_bench.sh:/full_test_bench.sh:ro \
-    -e HF_HOME=/cache/hf -e MODEL="$2" -e CTX=98304 -e LLAMA_ARGS="--jinja -np 6" \
+    -e HF_HOME=/cache/hf -e MODEL="$2" -e CTX=49152 -e BENCH_CTX=8192 -e BENCH_OBS_MAX_TOKENS=1448 -e LLAMA_ARGS="--jinja -np 6" \
     -e TAG="$1" -e SLOTS=6 -e AGENT=generic_v2 -e OBS_ARGS="" -e BENCH_CMD="bash /full_test_bench.sh" \
     mobilegym_full:latest
   local code=$?

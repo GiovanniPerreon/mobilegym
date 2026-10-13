@@ -32,7 +32,7 @@ run() {  # run <tag> <hf model:quant> <llama args> <agent> <observation args>
   docker run --rm --name "full_$1" --gpus "device=${GPU}" --network container:d1srv \
     -v "${RUNS}":/out -v /home/perreon/llama_cache:/cache \
     -v /home/perreon/mobilegym-edge/edge/full_test_bench.sh:/full_test_bench.sh:ro \
-    -e HF_HOME=/cache/hf -e MODEL="$2" -e CTX=98304 -e LLAMA_ARGS="$3" \
+    -e HF_HOME=/cache/hf -e MODEL="$2" -e CTX=49152 -e BENCH_CTX=8192 -e BENCH_OBS_MAX_TOKENS=1448 -e LLAMA_ARGS="$3" \
     -e TAG="$1" -e SLOTS=6 -e AGENT="$4" -e OBS_ARGS="$5" -e BENCH_CMD="bash /full_test_bench.sh" \
     mobilegym_full:latest
   local code=$?
@@ -56,7 +56,7 @@ NOTHINK="--chat-template-kwargs '{\"enable_thinking\":false}'"
 d1_up() {  # d1_up <hf repo:quant>
   docker rm -f d1srv > /dev/null 2>&1
   docker run -d --name d1srv --gpus "device=${GPU}" -v /home/perreon/llama_cache:/cache -e LLAMA_CACHE=/cache/llama \
-    "${D1_IMAGE}" -hf "$1" --host 127.0.0.1 --port 8081 -np 6 -c 98304 -ngl 99 > /dev/null || return 1
+    "${D1_IMAGE}" -hf "$1" --host 127.0.0.1 --port 8081 -np 6 -c 49152 -ngl 99 > /dev/null || return 1
   for _ in $(seq 1 180); do
     if docker exec d1srv curl -sf http://127.0.0.1:8081/health > /dev/null 2>&1; then break; fi
     sleep 5
