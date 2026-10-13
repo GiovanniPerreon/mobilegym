@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+dist
+build
+.git
+.vscode
+.idea
+.env
+.DS_Store
+__pycache__
+*.pyc
+mobilegym-data
+bench_env/__pycache__
+playwright/.cache
