@@ -42,8 +42,9 @@ run() {  # run <tag> <hf model:quant>
   echo "=== $(date +%T) ok $1 (${n} connection errors)"
 }
 
-run qwen3vl4b_q3km_screenshot_gen      "unsloth/Qwen3-VL-4B-Instruct-GGUF:Q3_K_M"
-run qwen3vl4b_q2kxl_screenshot_gen     "unsloth/Qwen3-VL-4B-Instruct-GGUF:UD-Q2_K_XL"
-run qwen3vl4b_iq2xxs_screenshot_gen    "unsloth/Qwen3-VL-4B-Instruct-GGUF:UD-IQ2_XXS"
+# Two levels below the Q4_K_M reference (mobilegym_runs/full_q4): the 1-bit end first, then a 2-bit middle point.
+# Q3_K_M and IQ2_XXS are not run: about 3 GB of the 4B footprint does not depend on the weights, so Q3_K_M
+# saves little memory over Q4_K_M, and IQ2_XXS sits next to Q2_K_XL on the memory axis.
 run qwen3vl4b_iq1m_screenshot_gen      "unsloth/Qwen3-VL-4B-Instruct-GGUF:UD-IQ1_M"
+run qwen3vl4b_q2kxl_screenshot_gen     "unsloth/Qwen3-VL-4B-Instruct-GGUF:UD-Q2_K_XL"
 echo "=== $(date +%T) finished"
