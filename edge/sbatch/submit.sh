@@ -6,11 +6,12 @@
 #   bash edge/sbatch/submit.sh edge/sbatch/plans/baseline.txt 2
 #   bash edge/sbatch/submit.sh edge/sbatch/plans/baseline.txt 2 nvidia_geforce_rtx_5090
 # Default GPU: one RTX 3090 (24 GB is enough for every plan line; the 5090 is the only one and has the longest queue).
+# moro232 is excluded: it has 4 CPU cores, too few for 6 parallel episodes (one Chromium page each) plus llama-server.
 set -eu
 PLAN="$1"
 MAX_PARALLEL=${2:-2}
 GPU=${3:-nvidia_geforce_rtx_3090}
 N=$(grep -v '^[[:space:]]*#' "/home/perreon/mobilegym-edge/${PLAN}" | grep -cv '^[[:space:]]*$')
 echo "${N} runs in ${PLAN}, at most ${MAX_PARALLEL} at a time, GPU ${GPU}"
-sbatch -N 1 --gpus="${GPU}:1" --array="1-${N}%${MAX_PARALLEL}" --output=/home/perreon/mobilegym_%A_%a.out \
+sbatch -N 1 --gpus="${GPU}:1" --array="1-${N}%${MAX_PARALLEL}" --output=/home/perreon/mobilegym_%A_%a.out --exclude=moro232 \
   /home/perreon/mobilegym-edge/edge/sbatch/run_plan.sh "${PLAN}"
