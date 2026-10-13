@@ -57,5 +57,3 @@ mobilegym-data
 _REMOVED_FILES.md
 docs/pending
 docs/archive
-slurm_logs/*
-!slurm_logs/.gitkeep
