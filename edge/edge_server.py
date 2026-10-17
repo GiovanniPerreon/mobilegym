@@ -33,7 +33,7 @@ from typing import Any, Optional
 from edge.common import MIB, Profile, cpuset_for, load_profiles
 
 DOCKER = os.environ.get("EDGE_DOCKER", "docker")
-IMAGE_CPU = "ghcr.io/ggml-org/llama.cpp:server"
+IMAGE_CPU = os.environ.get("EDGE_IMAGE_CPU", "ghcr.io/ggml-org/llama.cpp:server")
 IMAGE_GPU = "ghcr.io/ggml-org/llama.cpp:server-cuda"
 DEFAULT_LOAD_FLAGS = "--load-mode none"
 DEFAULT_SERVER_ARGS = "--jinja"
