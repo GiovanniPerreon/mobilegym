@@ -7,7 +7,13 @@
 #   cd /home/perreon/mobilegym-edge && git pull --ff-only && sbatch -N 1 --exclude=moro232 --output=/home/perreon/memory_%j.out edge/sbatch/run_memory.sh
 #SBATCH --job-name=memory
 set -u
-cd /home/perreon/mobilegym-edge || exit 1
+REPO=/home/perreon/mobilegym-edge
+if [ ! -d "${REPO}/.git" ]; then
+  git clone -q -b edge-device-simulation https://github.com/GiovanniPerreon/mobilegym "${REPO}" || exit 1
+else
+  git -C "${REPO}" pull -q --ff-only || echo "[warn] could not fast-forward ${REPO}, using it as it is"
+fi
+cd "${REPO}" || exit 1
 export EDGE_IMAGE_CPU=ghcr.io/ggml-org/llama.cpp:server-b11347
 OUT=/home/perreon/quant_memory_missing.csv
 echo "=== $(date +%T) $(hostname)"
