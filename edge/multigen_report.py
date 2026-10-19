@@ -11,6 +11,7 @@ Sections (episodes with a harness error count as failures, as in the thesis):
   5. how the episodes end (same classes as edge.outcomes)
   6. with --greedy: overlap between the tasks solved by the greedy run and by the sampled episodes
   7. tasks solved at least once, with their number of successes
+  8. avg@K and maj@K per difficulty level, with the tasks that have no majority
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+from edge import multigen_metrics
 from edge.multigen_metrics import pass_at_k
 from edge.outcomes import CLASSES, classify
 
@@ -117,6 +119,28 @@ def main() -> None:
     print("\n== 7. tasks solved at least once (level, successes)")
     for t in sorted((t for t in by_task if succ[t] > 0), key=lambda t: (-succ[t], level[t], t)):
         print(f"{level[t]}  {succ[t]:>2}/{len(by_task[t])}  {t}")
+
+    print("\n== 8. avg@K and maj@K per difficulty level (K = 5 and n)")
+    sig_rows = multigen_metrics.load(Path(a.runs_root))     # same action signatures as edge.multigen_metrics
+    ks = (min(5, n), n)
+    head = "  ".join(f"{f'avg@{k}':>7} {f'maj@{k}':>7} {'no maj':>6}" for k in ks)
+    print(f"{'level':<6} {'tasks':>5}  {head}")
+    for lv in LEVELS:
+        ts = [t for t in sig_rows if level.get(t) == lv]
+        if not ts:
+            continue
+        cells = []
+        for k in ks:
+            av = mj = nomaj = 0.0
+            for t in ts:
+                first = sig_rows[t][:k]
+                av += sum(e["success"] for e in first) / len(first)
+                solved, has = multigen_metrics.majority(first)
+                mj += solved
+                nomaj += (not has) and len(first) > 1
+            cells.append(f"{100 * av / len(ts):6.1f}% {100 * mj / len(ts):6.1f}% {int(nomaj):>6}")
+        print(f"{lv:<6} {len(ts):>5}  " + "  ".join(cells))
+    print("(no maj = tasks with no repeated action sequence, or a tie, among the first K episodes)")
 
 
 if __name__ == "__main__":
