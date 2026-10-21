@@ -5,7 +5,8 @@
 
 Successful episodes are not used. For every failed episode (harness errors excluded) two signals are computed on its
 steps, each step being described by its screen (route: app and page) and its action signature (edge.multigen_metrics):
-  wrong app   first step taken inside an application that the task does not involve (the home screen does not count)
+  wrong app   first step taken inside an application that the task does not involve (the home screen and the
+              answer sheet, where query tasks write their answer, do not count)
   cycle       start of the final cycle: from that step to the end the episode repeats the same 1, 2 or 3 steps
               (same screen and same action) at least three times, e.g. A A A ... or A B A B A B
 The struggle point is the earlier of the two. When neither fires, it is the last step (the false completion, the
@@ -32,6 +33,8 @@ from edge.multigen_metrics import step_signature
 from edge.outcomes import CLASSES, classify
 
 LEVELS = ("L1", "L2", "L3", "L4")
+# applications that any task may legitimately open: the answer sheet is where query tasks write their answer
+NEUTRAL_APPS = {"answer_sheet"}
 
 
 def load(root: Path, grid: int) -> list[dict[str, Any]]:
@@ -71,7 +74,7 @@ def wrong_app_step(traj: list[dict[str, Any]], apps: list[str]) -> Optional[int]
         return None
     for i, s in enumerate(traj):
         app = str((s.get("route") or {}).get("app") or "").lower()
-        if app and app not in apps:
+        if app and app not in apps and app not in NEUTRAL_APPS:
             return i
     return None
 
@@ -134,6 +137,9 @@ def main() -> None:
         before = sum(r["wrong_app"] < r["cycle"] for r in both)
         print(f"episodes with both signals {len(both)}: wrong app before the cycle in {before}, "
               f"same step in {sum(r['wrong_app'] == r['cycle'] for r in both)}")
+    wrong = Counter(r["screen"].split(":")[0] for r in rows if r["source"] in ("wrong app", "both"))
+    if wrong:
+        print("applications entered by mistake: " + ", ".join(f"{k} {v}" for k, v in wrong.most_common(10)))
     src = Counter(r["source"] for r in rows)
     print("source of the struggle point: " + ", ".join(f"{k} {v}" for k, v in src.most_common()))
 
