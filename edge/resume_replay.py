@@ -58,7 +58,8 @@ def _describe(step: dict[str, Any]) -> str:
     if kind in ("LONG_PRESS", "DOUBLE_TAP"):
         return f"{kind.lower().replace('_', ' ')}{at}"
     if kind in ("SWIPE", "DRAG"):
-        return f"{kind.lower()}ing from {d.get('point1')} to {d.get('point2')}"
+        verb = "swiping" if kind == "SWIPE" else "dragging"
+        return f"{verb} from {d.get('point1')} to {d.get('point2')}"
     if kind == "TYPE":
         return f"typing \"{d.get('value', '')}\""
     if kind == "AWAKE":
