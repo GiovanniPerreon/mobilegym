@@ -118,6 +118,7 @@ def main() -> None:
             continue
         d, g = divergence(e["sig"], golds[e["task"]])
         rows.append({**e, "d": d, "gold_run": g["run"], "gold_trial": g["trial"], "gold_len": len(g["sig"]),
+                     "gold_sig": g["sig"],
                      "rel": rel_bin(d, len(g["sig"]))})
 
     tasks_all = {e["task"] for e in eps}
@@ -168,6 +169,30 @@ def main() -> None:
     for t, rs in sorted(by_task.items(), key=lambda kv: (-len(kv[1]), kv[0]))[:20]:
         top_d, cnt = Counter(r["d"] for r in rs).most_common(1)[0]
         print(f"{rs[0]['level']}  {len(rs):>2} failed  d = {top_d:>2} in {cnt:>2}  gold {rs[0]['gold_len']:>2} steps  {t}")
+
+    print("\n== 6. what goes wrong at step d (failed action against the action of the closest gold)")
+    kinds: Counter = Counter()
+    pairs: Counter = Counter()
+    for r in rows:
+        f, g = r["sig"], r["gold_sig"]
+        if r["d"] >= len(f):
+            kinds["failed episode ends before the gold"] += 1
+            continue
+        fr, fk, _ = f[r["d"]]
+        gr, gk, _ = g[r["d"]]
+        if fr != gr:
+            kinds["different screen (state differs from the gold)"] += 1
+        elif fk != gk:
+            kinds["different action type"] += 1
+            pairs[(gk, fk)] += 1
+        else:
+            kinds["same action type, different target or text"] += 1
+    for k, v in kinds.most_common():
+        print(f"  {k:<48} {v:>5} ({100 * v / len(rows):4.1f}%)")
+    if pairs:
+        print("  most frequent type changes (gold -> failed):")
+        for (gk, fk), v in pairs.most_common(8):
+            print(f"    {gk:>10} -> {fk:<10} {v:>4}")
 
     if a.csv:
         fields = ["task", "trial", "level", "outcome", "steps", "d", "gold_run", "gold_trial", "gold_len"]
