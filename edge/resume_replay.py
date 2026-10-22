@@ -180,6 +180,8 @@ def cmd_run(a: argparse.Namespace, bench_args: list[str]) -> int:
     plan = json.loads(Path(a.plan).read_text(encoding="utf-8"))
     by_name = {e["task_name"]: e for e in plan["episodes"]}
     hint_key = {"none": None, "a": "hint_a", "b": "hint_b"}[a.hint]
+    import time
+    delay = a.replay_delay  # seconds before each replayed action, in place of the time the model takes to answer
 
     def saved_action(s: dict[str, Any], i: int) -> Any:
         return Action(action_type=ActionType(str(s["action_type"])), data=dict(s["action_data"]),
@@ -213,6 +215,7 @@ def cmd_run(a: argparse.Namespace, bench_args: list[str]) -> int:
             if self._plan is None:
                 return Action(action_type=ActionType.ABORT, data={"value": "replay: no plan"})
             if self._i < len(self._plan["actions"]):
+                time.sleep(delay)
                 self._i += 1
                 return saved_action(self._plan["actions"][self._i - 1], self._i)
             return Action(action_type=ActionType.ABORT, data={"value": "replay end"})
@@ -248,6 +251,7 @@ def cmd_run(a: argparse.Namespace, bench_args: list[str]) -> int:
         def act(self, obs: Any) -> Any:
             if self._plan is not None and self._i < len(self._plan["actions"]):
                 s = self._plan["actions"][self._i]
+                time.sleep(delay)
                 action = saved_action(s, self._i + 1)
                 resp = self._plan["responses"][self._i] if self._i < len(self._plan["responses"]) else ""
                 if not resp:
@@ -374,6 +378,8 @@ def main() -> None:
     r = sub.add_parser("run")
     r.add_argument("--plan", required=True)
     r.add_argument("--hint", choices=("none", "a", "b"), default="none")
+    r.add_argument("--replay-delay", type=float, default=3.0,
+                   help="seconds to wait before each replayed action, as the model would (default 3)")
     c = sub.add_parser("check")
     c.add_argument("--plan", required=True)
     c.add_argument("--replay", action="append", required=True, help="output folder of a run (repeatable)")
