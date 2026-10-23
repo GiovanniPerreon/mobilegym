@@ -6,7 +6,8 @@
 #   sbatch -N 1 --gpus=nvidia_geforce_rtx_3090:1 --nodelist=faretra --output=/home/perreon/resume_%j.out \
 #     /home/perreon/mobilegym-edge/edge/sbatch/run_resume.sh /home/perreon/resume/plan_f16.json resume_f16 "none a"
 # Arguments: plan, tag, hint conditions (any of: none a b), [model, default Qwen3-VL-4B F16], [episodes per
-# episode of the plan, default 3].
+# episode of the plan, default 3]. A condition can also name its own plan, as condition:plan file, e.g.
+# "b none:/home/perreon/resume/plan_f16_calendar.json"; its output folder is then <tag>_<condition>_<plan name>.
 #SBATCH -N 1
 #SBATCH --job-name=resume
 set -u
@@ -25,16 +26,25 @@ mkdir -p "${RUNS}" "${CACHE}"
 if ! docker image inspect "${IMAGE}" > /dev/null 2>&1; then
   echo "=== image ${IMAGE} missing on $(hostname): build it first (see edge/sbatch/run_plan.sh)"; exit 1
 fi
-IDS=$(python3 -c "import json,sys; print(','.join(e['task_id'] for e in json.load(open(sys.argv[1]))['episodes']))" "${PLAN}")
+ids() { python3 -c "import json,sys; print(','.join(e['task_id'] for e in json.load(open(sys.argv[1]))['episodes']))" "$1"; }
 cp "${PLAN}" "${RUNS}/${TAG}_plan.json"
 echo "=== $(date '+%F %T') node $(hostname) GPU ${CUDA_VISIBLE_DEVICES:-?}: ${TAG}, conditions ${CONDITIONS}, ${MODEL}"
 
 ARGS="--env-url http://127.0.0.1:4173 --model-base-url http://127.0.0.1:8000/v1 --model-api-key EMPTY \
 --model-name \"\${MODEL_NAME}\" --headless --judge-mode state --preset paper --temperature 0.7 \
---split test --sample-n 1 --sample-seed 0 --task-ids ${IDS} --repeat-n ${REPEAT_N} --parallel ${SLOTS} --agent resume"
+--split test --sample-n 1 --sample-seed 0 --repeat-n ${REPEAT_N} --parallel ${SLOTS} --agent resume"
 CMD=""
-for c in ${CONDITIONS}; do
-  CMD="${CMD} python -m edge.resume_replay run --plan /out/${TAG}_plan.json --hint ${c} -- ${ARGS} --runs-dir /out/${TAG}_${c};"
+OUTS=""
+for item in ${CONDITIONS}; do
+  c="${item%%:*}"
+  if [ "${item}" = "${c}" ]; then
+    P="${TAG}_plan.json"; OUT="${TAG}_${c}"; IDS=$(ids "${PLAN}")
+  else
+    PF="${item#*:}"; B=$(basename "${PF}" .json); P="${TAG}_${B}.json"; OUT="${TAG}_${c}_${B}"
+    cp "${PF}" "${RUNS}/${P}"; IDS=$(ids "${PF}")
+  fi
+  CMD="${CMD} python -m edge.resume_replay run --plan /out/${P} --hint ${c} -- ${ARGS} --task-ids ${IDS} --runs-dir /out/${OUT};"
+  OUTS="${OUTS} ${OUT}"
 done
 
 cleanup() { docker rm -f "${NAME}" > /dev/null 2>&1; rm -rf "${CACHE}"; }
@@ -47,4 +57,4 @@ docker run --rm --name "${NAME}" --gpus "device=${CUDA_VISIBLE_DEVICES}" --memor
   -e BENCH_CTX=8192 -e BENCH_OBS_MAX_TOKENS=1448 \
   -e BENCH_CMD="${CMD}" "${IMAGE}"
 echo "=== $(date '+%F %T') end ${TAG} (exit $?)"
-for c in ${CONDITIONS}; do echo "results: ${RUNS}/${TAG}_${c}"; done
+for o in ${OUTS}; do echo "results: ${RUNS}/${o}"; done
