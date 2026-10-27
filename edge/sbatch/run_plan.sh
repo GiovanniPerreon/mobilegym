@@ -33,6 +33,18 @@ IFS='|' read -r TAG MODEL LLAMA_ARGS AGENT OBS_ARGS TEMPERATURE REPEAT_N SLOTS <
 trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; echo "${s%"${s##*[![:space:]]}"}"; }
 TAG=$(trim "${TAG}"); MODEL=$(trim "${MODEL}"); LLAMA_ARGS=$(trim "${LLAMA_ARGS}"); AGENT=$(trim "${AGENT}")
 OBS_ARGS=$(trim "${OBS_ARGS}"); TEMPERATURE=$(trim "${TEMPERATURE}"); REPEAT_N=$(trim "${REPEAT_N}"); SLOTS=$(trim "${SLOTS}")
+# "mmproj-match:<repo>:<text>" in the llama-server args = the only mmproj file of <repo> whose name contains <text>
+# (e.g. mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0), resolved here into --mmproj-url
+if [[ "${LLAMA_ARGS}" =~ mmproj-match:([^[:space:]:]+/[^[:space:]:]+):([^[:space:]]+) ]]; then
+  MREPO="${BASH_REMATCH[1]}"; MTEXT="${BASH_REMATCH[2]}"
+  MFILE=$(python3 -c "import json,sys,urllib.request
+fs=[s['rfilename'] for s in json.load(urllib.request.urlopen('https://huggingface.co/api/models/'+sys.argv[1]))['siblings']
+    if s['rfilename'].rsplit('/',1)[-1].lower().startswith('mmproj') and sys.argv[2].lower() in s['rfilename'].lower()]
+print(fs[0] if len(fs)==1 else '')" "${MREPO}" "${MTEXT}")
+  [ -n "${MFILE}" ] || { echo "=== no single mmproj file of ${MREPO} matches ${MTEXT}"; exit 1; }
+  LLAMA_ARGS="${LLAMA_ARGS/mmproj-match:${MREPO}:${MTEXT}/--mmproj-url https://huggingface.co/${MREPO}/resolve/main/${MFILE}}"
+  echo "=== vision encoder: ${MREPO}/${MFILE}"
+fi
 RUNS=/home/perreon/mobilegym_runs/$(basename "${PLAN}" .txt)
 CACHE=/home/perreon/llama_cache/job_${SLURM_JOB_ID}
 NAME=mg_${SLURM_JOB_ID}

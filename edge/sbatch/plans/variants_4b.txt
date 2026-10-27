@@ -1,0 +1,10 @@
+# Qwen3-VL-4B at Q4_K_M (unsloth GGUF, same weights as quant_4b.txt) with one change at a time on top of the
+# quantized language model: fewer tokens per screenshot, a Q8_0 vision encoder, a q8_0 KV cache, and the last two
+# together. Reference: qwen3vl4b_q4_k_m_screenshot_gen of quant_4b.txt. A quantized V cache needs flash attention
+# (-fa on), so the two KV lines use it.
+# tag | model | llama-server args | agent | observation | temperature | episodes per task | slots
+qwen3vl4b_q4_k_m_img1024     | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja --image-max-tokens 1024 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_img512      | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja --image-max-tokens 512 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_mmq8        | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_kvq8        | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja -fa on -ctk q8_0 -ctv q8_0 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_kvq8_mmq8   | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja -fa on -ctk q8_0 -ctv q8_0 mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0 | generic_v2 | | 0 | 1 | 6
