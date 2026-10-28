@@ -67,6 +67,7 @@ docker run --rm --name "${NAME}" --gpus "device=${CUDA_VISIBLE_DEVICES}" --memor
   -v "${REPO}/edge/full_test_bench.sh":/full_test_bench.sh:ro \
   -e HF_HOME=/cache/hf -e MODEL="${MODEL}" -e CTX=$((SLOTS * 8192)) -e LLAMA_ARGS="${LLAMA_ARGS} -np ${SLOTS}" \
   -e BENCH_CTX=8192 -e BENCH_OBS_MAX_TOKENS=1448 -e TAG="${TAG}" -e SLOTS="${SLOTS}" -e AGENT="${AGENT}" \
+  -e OUT_DIR="/out/${TAG}" \
   -e OBS_ARGS="${OBS_ARGS}" -e TEMPERATURE="${TEMPERATURE}" -e REPEAT_N="${REPEAT_N}" \
   -e BENCH_CMD="bash /full_test_bench.sh" "${IMAGE}"
 echo "=== $(date '+%F %T') end ${TAG} (exit $?)"
