@@ -62,6 +62,23 @@ if ls "${RUNS}/${TAG}"/*/results.jsonl > /dev/null 2>&1; then
   mv "${RUNS}/${TAG}" "${RUNS}/${TAG}_invalid_$(date +%Y%m%d_%H%M%S)"
 fi
 
+# Slurm assigns a whole GPU but does not look at its memory: on a shared node other processes may already fill it.
+# Wait until the assigned GPU has at least MIN_FREE_MIB free (default 12000, enough for a 4B model with 6 slots),
+# checking every minute, for at most 48 hours.
+MIN_FREE_MIB=${MIN_FREE_MIB:-12000}
+for i in $(seq 1 2880); do
+  FREE=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits -i "${CUDA_VISIBLE_DEVICES}" 2>/dev/null | head -1 | tr -d ' ')
+  if [ -n "${FREE}" ] && [ "${FREE}" -ge "${MIN_FREE_MIB}" ]; then
+    echo "=== $(date '+%F %T') GPU ${CUDA_VISIBLE_DEVICES}: ${FREE} MiB free, starting"
+    break
+  fi
+  [ $((i % 10)) -eq 1 ] && echo "=== $(date '+%F %T') GPU ${CUDA_VISIBLE_DEVICES}: ${FREE:-?} MiB free, waiting for ${MIN_FREE_MIB}"
+  sleep 60
+done
+if [ -z "${FREE}" ] || [ "${FREE}" -lt "${MIN_FREE_MIB}" ]; then
+  echo "=== GPU ${CUDA_VISIBLE_DEVICES} never had ${MIN_FREE_MIB} MiB free in 48 hours"; exit 1
+fi
+
 docker run --rm --name "${NAME}" --gpus "device=${CUDA_VISIBLE_DEVICES}" --memory=30g \
   -v "${RUNS}":/out -v "${CACHE}":/cache \
   -v "${REPO}/edge/full_test_bench.sh":/full_test_bench.sh:ro \
