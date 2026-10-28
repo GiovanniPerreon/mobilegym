@@ -27,20 +27,6 @@ fi
     docker build -q -f "${REPO}/build/Dockerfile" -t "${IMAGE}" "${REPO}/build" || exit 1
   fi
 ) 9> /home/perreon/.mobilegym_build.lock || { echo "=== image build failed on $(hostname)"; exit 1; }
-# Slurm cannot see processes started outside it, so the GPU it assigns may already be almost full. If it has less
-# than NEED_MIB free, the job does not wait on it: it resubmits the same plan line on the same node for RETRY_MIN
-# minutes later and exits at once (mail only on failure for the resubmitted jobs, to avoid one mail per retry).
-NEED_MIB=11500
-RETRY_MIN=15
-FREE=$(nvidia-smi -i "${CUDA_VISIBLE_DEVICES}" --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1)
-if [ -n "${FREE}" ] && [ "${FREE}" -lt "${NEED_MIB}" ]; then
-  echo "=== $(date '+%F %T') GPU ${CUDA_VISIBLE_DEVICES} of $(hostname) has ${FREE} MiB free, ${NEED_MIB} needed:" \
-       "line ${SLURM_ARRAY_TASK_ID} resubmitted for ${RETRY_MIN} minutes from now"
-  sbatch -N 1 --nodelist="${SLURMD_NODENAME}" --gpus=nvidia_geforce_rtx_3090:1 --array="${SLURM_ARRAY_TASK_ID}" \
-    --begin="now+${RETRY_MIN}minutes" --output=/home/perreon/mobilegym_%A_%a.out \
-    --mail-type=FAIL --mail-user=giovanni.perreon@studio.unibo.it "${REPO}/edge/sbatch/run_plan.sh" "$1"
-  exit 0
-fi
 PLAN="${REPO}/$1"
 LINE=$(grep -v '^[[:space:]]*#' "${PLAN}" | grep -v '^[[:space:]]*$' | sed -n "${SLURM_ARRAY_TASK_ID}p")
 IFS='|' read -r TAG MODEL LLAMA_ARGS AGENT OBS_ARGS TEMPERATURE REPEAT_N SLOTS <<< "${LINE}"
