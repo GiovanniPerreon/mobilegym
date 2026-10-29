@@ -5,7 +5,7 @@ set -u
 REPO=/home/perreon/mobilegym-edge
 IMAGE=mobilegym_full:latest
 if [ ! -d "${REPO}/.git" ]; then
-  git clone -q -b edge-device-simulation https://github.com/GiovanniPerreon/mobilegym "${REPO}" || exit 1
+  git clone -q -b main https://github.com/GiovanniPerreon/mobilegym "${REPO}" || exit 1
 else
   git -C "${REPO}" pull -q --ff-only || echo "[warn] could not fast-forward ${REPO}, using it as it is"
 fi
