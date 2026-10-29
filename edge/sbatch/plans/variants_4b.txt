@@ -1,0 +1,5 @@
+qwen3vl4b_q4_k_m_img1024     | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja --image-max-tokens 1024 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_img512      | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja --image-max-tokens 512 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_mmq8        | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_kvq8        | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja -fa on -ctk q8_0 -ctv q8_0 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_kvq8_mmq8   | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja -fa on -ctk q8_0 -ctv q8_0 mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0 | generic_v2 | | 0 | 1 | 6

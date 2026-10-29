@@ -1,0 +1,2 @@
+qwen3vl8b_iq1_m_screenshot_gen  | unsloth/Qwen3-VL-8B-Instruct-GGUF:UD-IQ1_M  | --jinja | generic_v2 | | 0 | 1 | 6
+qwen3vl32b_iq1_m_screenshot_gen | unsloth/Qwen3-VL-32B-Instruct-GGUF:UD-IQ1_M | --jinja | generic_v2 | | 0 | 1 | 4

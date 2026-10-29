@@ -1,0 +1,1 @@
+qwen35_2b_q4_k_m_screenshot_gen | unsloth/Qwen3.5-2B-GGUF:Q4_K_M | --jinja --chat-template-kwargs '{"enable_thinking":false}' | generic_v2 | | 0 | 1 | 6
