@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /bench
 ARG REPO_URL=https://github.com/GiovanniPerreon/mobilegym.git
-ARG REPO_REF=e4307c1011e6501a2253f4756f69601581abf67c
+ARG REPO_REF=d15074aa18087d3c1a1f9b5fbc03a982a43d141c
 RUN git clone ${REPO_URL} . && git checkout ${REPO_REF}
 RUN npm ci
 
