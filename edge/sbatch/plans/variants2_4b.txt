@@ -1,0 +1,8 @@
+# Qwen3-VL-4B at Q4_K_M (unsloth), second round of memory reductions after variants_4b.txt: a q4_0 KV cache (with
+# the F16 and the Q8_0 vision encoder), and fewer image tokens on top of both Q8_0 changes. A quantized V cache needs
+# flash attention (-fa on). No Q4 vision encoder: none is published, and llama.cpp converts projectors only to Q8_0.
+# tag | model | llama-server args | agent | observation | temperature | episodes per task | slots
+qwen3vl4b_q4_k_m_kvq4              | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja -fa on -ctk q4_0 -ctv q4_0 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_kvq4_mmq8         | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja -fa on -ctk q4_0 -ctv q4_0 mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_img1024_kvq8_mmq8 | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja -fa on -ctk q8_0 -ctv q8_0 --image-max-tokens 1024 mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0 | generic_v2 | | 0 | 1 | 6
+qwen3vl4b_q4_k_m_img512_kvq8_mmq8  | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja -fa on -ctk q8_0 -ctv q8_0 --image-max-tokens 512 mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0 | generic_v2 | | 0 | 1 | 6
