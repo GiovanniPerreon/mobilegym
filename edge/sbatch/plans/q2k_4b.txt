@@ -1,0 +1,1 @@
+qwen3vl4b_q2_k_screenshot_gen    | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q2_K       | --jinja | generic_v2 | | 0 | 1 | 6

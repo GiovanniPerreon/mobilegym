@@ -1,0 +1,2 @@
+qwen35_08b_bf16_screenshot_gen   | unsloth/Qwen3.5-0.8B-GGUF:BF16   | --jinja --chat-template-kwargs '{"enable_thinking":false}' | generic_v2 | | 0 | 1 | 6
+qwen35_08b_q4_k_m_screenshot_gen | unsloth/Qwen3.5-0.8B-GGUF:Q4_K_M | --jinja --chat-template-kwargs '{"enable_thinking":false}' | generic_v2 | | 0 | 1 | 6
