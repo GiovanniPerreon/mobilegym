@@ -19,7 +19,9 @@ from edge.memcheck import check
 LADDER = ["Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q4_K_S", "IQ4_XS", "Q3_K_M", "Q3_K_S", "IQ3_XXS",
           "Q2_K", "Q2_K_L", "Q2_K_XL", "IQ2_M", "IQ2_XXS", "IQ1_M", "IQ1_S"]
 FIELDS = ["repo", "file", "level", "file_mib", "mmproj", "ctx", "lower_bound_mib", "rest_vmhwm_mib",
-          "image_vmhwm_mib", "image_increase_mib", "load_s", "image_s", "status", "note", "cache_type"]
+          "image_vmhwm_mib", "image_increase_mib", "load_s", "image_s", "status", "note", "cache_type",
+          "step_prompt_tokens", "step_completion_tokens", "step_vmhwm_mib", "step_increase_mib", "step_s"]
+FILLER = "The user opened the settings and tapped the switch, then went back to the list of messages. "
 
 
 def level_of(filename: str) -> Optional[str]:
@@ -67,18 +69,46 @@ def download(repo: str, filename: str, models_dir: Path) -> Path:
     return dest
 
 
-def image_request(port: int, width: int = 1080, height: int = 2400, timeout_s: float = 1800) -> float:
-    png = base64.b64encode(make_png(width, height)).decode()
-    body = {"messages": [{"role": "user", "content": [
-        {"type": "text", "text": "Describe the screen."},
-        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{png}"}}]}],
-        "max_tokens": 1, "temperature": 0}
+def _chat(port: int, body: dict[str, Any], timeout_s: float) -> dict[str, Any]:
     req = urllib.request.Request(f"http://127.0.0.1:{port}/v1/chat/completions", data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json"})
-    t0 = time.time()
     with urllib.request.urlopen(req, timeout=timeout_s) as r:
-        r.read()
+        return json.loads(r.read())
+
+
+def _image_messages(text: str, width: int, height: int) -> list[dict[str, Any]]:
+    png = base64.b64encode(make_png(width, height)).decode()
+    return [{"role": "user", "content": [
+        {"type": "text", "text": text},
+        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{png}"}}]}]
+
+
+def image_request(port: int, width: int = 1080, height: int = 2400, timeout_s: float = 1800) -> float:
+    body = {"messages": _image_messages("Describe the screen.", width, height), "max_tokens": 1, "temperature": 0}
+    t0 = time.time()
+    _chat(port, body, timeout_s)
     return round(time.time() - t0, 1)
+
+
+def _count_tokens(port: int, text: str) -> int:
+    req = urllib.request.Request(f"http://127.0.0.1:{port}/tokenize", data=json.dumps({"content": text}).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return len(json.loads(r.read())["tokens"])
+
+
+def step_request(port: int, prompt_tokens: int, max_tokens: int, width: int = 1080, height: int = 2400,
+                 timeout_s: float = 3600) -> dict[str, Any]:
+    base = _chat(port, {"messages": _image_messages("Describe the screen.", width, height), "max_tokens": 1,
+                        "temperature": 0}, timeout_s)["usage"]["prompt_tokens"]
+    per = max(1, _count_tokens(port, FILLER))
+    text = FILLER * max(0, -(-(prompt_tokens - base) // per)) + "Describe the screen."
+    body = {"messages": _image_messages(text, width, height), "max_tokens": max_tokens, "temperature": 0,
+            "ignore_eos": True, "cache_prompt": False}
+    t0 = time.time()
+    usage = _chat(port, body, timeout_s).get("usage", {})
+    return {"step_s": round(time.time() - t0, 1), "step_prompt_tokens": usage.get("prompt_tokens", ""),
+            "step_completion_tokens": usage.get("completion_tokens", "")}
 
 
 def done_keys(out: Path) -> set[tuple[str, str, str, str]]:
@@ -104,7 +134,8 @@ def append(out: Path, row: dict[str, Any]) -> None:
 
 
 def measure(repo: str, level: str, gguf: Path, mmproj: Optional[Path], ctx: int, profile_id: str, slot: int,
-            port: int, server_args: str, load_flags: str, cache_type: str = "f16") -> dict[str, Any]:
+            port: int, server_args: str, load_flags: str, cache_type: str = "f16", step_tokens: int = 0,
+            step_max_tokens: int = 256) -> dict[str, Any]:
     prof = load_profiles()[profile_id]
     row: dict[str, Any] = {"repo": repo, "file": gguf.name, "level": level, "ctx": ctx, "cache_type": cache_type,
                            "file_mib": round(gguf.stat().st_size / 2**20, 1), "mmproj": mmproj.name if mmproj else ""}
@@ -131,6 +162,12 @@ def measure(repo: str, level: str, gguf: Path, mmproj: Optional[Path], ctx: int,
             row["image_vmhwm_mib"] = img.get("vmhwm_mib", "")
             if row["image_vmhwm_mib"] not in ("", None) and row["rest_vmhwm_mib"] not in ("", None):
                 row["image_increase_mib"] = round(row["image_vmhwm_mib"] - row["rest_vmhwm_mib"], 1)
+            if step_tokens:
+                row.update(step_request(port, step_tokens, step_max_tokens))
+                stp = edge_server.peak(name)
+                row["step_vmhwm_mib"] = stp.get("vmhwm_mib", "")
+                if row["step_vmhwm_mib"] not in ("", None) and row["image_vmhwm_mib"] not in ("", None):
+                    row["step_increase_mib"] = round(row["step_vmhwm_mib"] - row["image_vmhwm_mib"], 1)
         except Exception as e:
             st = edge_server.container_state(name)
             status = "oom_image" if st.get("oom_killed") else "image_failed"
@@ -157,6 +194,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--port", type=int, default=8085)
     ap.add_argument("--server-args", default="--jinja")
     ap.add_argument("--load-flags", default=edge_server.DEFAULT_LOAD_FLAGS)
+    ap.add_argument("--step-tokens", type=int, default=0,
+                    help="after the screenshot, also run a complete step with a prompt of about this many tokens "
+                         "(screenshot included) and read the peak again")
+    ap.add_argument("--step-max-tokens", type=int, default=256, help="tokens generated in that step")
     ap.add_argument("--delete-after", action="store_true",
                     help="delete each level's GGUF after it has been measured successfully (saves disk space)")
     ap.add_argument("--out", default=str(Path(__file__).resolve().parent / "results" / "quant_memory.csv"))
@@ -191,7 +232,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"[run ] {fname} ctx {args.ctx}", flush=True)
         try:
             row = measure(args.repo, lv, gguf, mmproj, args.ctx, args.profile, args.slot, args.port,
-                          args.server_args, args.load_flags, args.cache_type)
+                          args.server_args, args.load_flags, args.cache_type, args.step_tokens,
+                          args.step_max_tokens)
         except Exception as e:
             try:
                 edge_server.down("edge-quant")
@@ -204,7 +246,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         if args.delete_after and row.get("status") == "ok":
             gguf.unlink(missing_ok=True)
         print(f"[done] {fname}: {row['status']}  rest={row.get('rest_vmhwm_mib', '')} MiB  "
-              f"image={row.get('image_vmhwm_mib', '')} MiB", flush=True)
+              f"image={row.get('image_vmhwm_mib', '')} MiB  step={row.get('step_vmhwm_mib', '')} MiB "
+              f"({row.get('step_prompt_tokens', '')} + {row.get('step_completion_tokens', '')} tokens)", flush=True)
     return 0
 
 

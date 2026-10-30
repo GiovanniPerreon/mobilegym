@@ -61,7 +61,8 @@ check` collects the outcomes. `sbatch/run_resume.sh` runs it on the cluster.
 ## Memory on CPU
 
 `quant_memory.py` measures the peak resident memory (VmHWM) of llama-server at rest and after one 1080 x 2400
-screenshot, on 4 pinned cores with the CPU image of llama.cpp b11347. Slurm jobs: `sbatch/run_memory.sh`
+screenshot, on 4 pinned cores with the CPU image of llama.cpp b11347; `--step-tokens 5800` also runs a complete step
+with a prompt of that length and reads the peak again. Slurm jobs: `sbatch/run_memory.sh`
 (quantization types), `sbatch/run_memory_variants.sh` and `sbatch/run_memory_combos.sh` (image tokens, vision
 encoder, KV cache).
 
