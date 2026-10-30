@@ -1,0 +1,1 @@
+qwen3vl4b_q4_k_m_img1024_kvq4_mmq8_t07x10 | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M | --jinja -fa on -ctk q4_0 -ctv q4_0 --image-max-tokens 1024 mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0 | generic_v2 | | 0.7 | 10 | 6
