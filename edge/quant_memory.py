@@ -16,7 +16,7 @@ from edge.bench_device import make_png
 from edge.common import load_profiles
 from edge.memcheck import check
 
-LADDER = ["Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q4_K_S", "IQ4_XS", "Q3_K_M", "Q3_K_S", "IQ3_XXS",
+LADDER = ["F16", "BF16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q4_K_S", "IQ4_XS", "Q3_K_M", "Q3_K_S", "IQ3_XXS",
           "Q2_K", "Q2_K_L", "Q2_K_XL", "IQ2_M", "IQ2_XXS", "IQ1_M", "IQ1_S"]
 FIELDS = ["repo", "file", "level", "file_mib", "mmproj", "ctx", "lower_bound_mib", "rest_vmhwm_mib",
           "image_vmhwm_mib", "image_increase_mib", "load_s", "image_s", "status", "note", "cache_type",
