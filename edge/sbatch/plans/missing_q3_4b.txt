@@ -1,0 +1,4 @@
+# the three sampled episodes of the Q3_K_M runs that never ended, one task each (last field)
+qwen3vl4b_q3_k_m_screenshot_gen_t07x10_railway | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q3_K_M   | --jinja | generic_v2 | | 0.7 | 1 | 1 | account.Railway12306ForgotPasswordReset
+qwen3vl4b_q3_k_m_img1024_kvq4_mmq8_t07x10_wechat | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q3_K_M | --jinja -fa on -ctk q4_0 -ctv q4_0 --image-max-tokens 1024 mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0 | generic_v2 | | 0.7 | 1 | 1 | account.WechatAccountCancellation
+qwen3vl4b_q3_k_m_img1024_kvq4_mmq8_t07x10_map | unsloth/Qwen3-VL-4B-Instruct-GGUF:Q3_K_M | --jinja -fa on -ctk q4_0 -ctv q4_0 --image-max-tokens 1024 mmproj-match:Qwen/Qwen3-VL-4B-Instruct-GGUF:Q8_0 | generic_v2 | | 0.7 | 1 | 1 | crossapp_life.MapRatingConditionBuyTicket
