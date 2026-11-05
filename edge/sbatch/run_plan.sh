@@ -18,10 +18,12 @@ fi
 ) 9> /home/perreon/.mobilegym_build.lock || { echo "=== image build failed on $(hostname)"; exit 1; }
 PLAN="${REPO}/$1"
 LINE=$(grep -v '^[[:space:]]*#' "${PLAN}" | grep -v '^[[:space:]]*$' | sed -n "${SLURM_ARRAY_TASK_ID}p")
-IFS='|' read -r TAG MODEL LLAMA_ARGS AGENT OBS_ARGS TEMPERATURE REPEAT_N SLOTS <<< "${LINE}"
+IFS='|' read -r TAG MODEL LLAMA_ARGS AGENT OBS_ARGS TEMPERATURE REPEAT_N SLOTS TASK_ID <<< "${LINE}"
 trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; echo "${s%"${s##*[![:space:]]}"}"; }
 TAG=$(trim "${TAG}"); MODEL=$(trim "${MODEL}"); LLAMA_ARGS=$(trim "${LLAMA_ARGS}"); AGENT=$(trim "${AGENT}")
-OBS_ARGS=$(trim "${OBS_ARGS}"); TEMPERATURE=$(trim "${TEMPERATURE}"); REPEAT_N=$(trim "${REPEAT_N}"); SLOTS=$(trim "${SLOTS}")
+OBS_ARGS=$(trim "${OBS_ARGS}"); TEMPERATURE=$(trim "${TEMPERATURE}"); REPEAT_N=$(trim "${REPEAT_N}"); SLOTS=$(trim "${SLOTS}"); TASK_ID=$(trim "${TASK_ID:-}")
+# a single task is stopped after two hours, in case the simulated phone stops responding
+LIMIT=0; [ -n "${TASK_ID}" ] && LIMIT=2h
 if [[ "${LLAMA_ARGS}" =~ mmproj-match:([^[:space:]:]+/[^[:space:]:]+):([^[:space:]]+) ]]; then
   MREPO="${BASH_REMATCH[1]}"; MTEXT="${BASH_REMATCH[2]}"
   MFILE=$(python3 -c "import json,sys,urllib.request
@@ -49,13 +51,13 @@ if ls "${RUNS}/${TAG}"/*/results.jsonl > /dev/null 2>&1; then
   mv "${RUNS}/${TAG}" "${RUNS}/${TAG}_invalid_$(date +%Y%m%d_%H%M%S)"
 fi
 
-docker run --rm --name "${NAME}" --gpus "device=${CUDA_VISIBLE_DEVICES}" --memory=30g \
+timeout "${LIMIT}" docker run --rm --name "${NAME}" --gpus "device=${CUDA_VISIBLE_DEVICES}" --memory=30g \
   -v "${RUNS}":/out -v "${CACHE}":/cache \
   -v "${REPO}/edge/full_test_bench.sh":/full_test_bench.sh:ro \
   -e HF_HOME=/cache/hf -e MODEL="${MODEL}" -e CTX=$((SLOTS * 8192)) -e LLAMA_ARGS="${LLAMA_ARGS} -np ${SLOTS}" \
   -e BENCH_CTX=8192 -e BENCH_OBS_MAX_TOKENS=1448 -e TAG="${TAG}" -e SLOTS="${SLOTS}" -e AGENT="${AGENT}" \
   -e OUT_DIR="/out/${TAG}" \
-  -e OBS_ARGS="${OBS_ARGS}" -e TEMPERATURE="${TEMPERATURE}" -e REPEAT_N="${REPEAT_N}" \
+  -e OBS_ARGS="${OBS_ARGS}" -e TASK_ID="${TASK_ID}" -e TEMPERATURE="${TEMPERATURE}" -e REPEAT_N="${REPEAT_N}" \
   -e BENCH_CMD="bash /full_test_bench.sh" "${IMAGE}"
 echo "=== $(date '+%F %T') end ${TAG} (exit $?)"
 
