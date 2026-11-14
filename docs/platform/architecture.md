@@ -2,7 +2,7 @@
 
 This document is the high-level overview of how MobileGym is put together. For the formal rules and contracts behind each layer, follow the links in this `platform/` directory.
 
-For the canonical figure (also shown in the [top-level README](../../README.md)), see [`../../assets/arch.png`](../../assets/arch.png).
+For the canonical figure (also shown in the [MobileGym README](https://github.com/Purewhiter/mobilegym)), see [`../../assets/arch.png`](../../assets/arch.png).
 
 ## The three layers
 

@@ -12,4 +12,4 @@ Use these docs when changing build-time discovery, generated artifacts, Vite plu
 | App module file conventions | [`../app/module-contract.md`](../app/module-contract.md) |
 | Navigation artifact semantics | [`../navigation/declaration.md`](../navigation/declaration.md) |
 
-Most app authors only need the commands surfaced in the root `README.md`; this directory is for platform maintainers.
+Most app authors only need the commands surfaced in the [MobileGym README](https://github.com/Purewhiter/mobilegym); this directory is for platform maintainers.

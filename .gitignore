@@ -67,3 +67,7 @@ mobilegym-data
 _REMOVED_FILES.md
 docs/pending
 docs/archive
+
+# Thesis data archive (see edge/README.md), kept out of the repository
+/mobilegym_data/
+/mobilegym_data.zip
