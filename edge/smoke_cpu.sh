@@ -15,13 +15,14 @@ fi
 run() {
   local TAG=$1 MODEL=$2 ARGS=$3
   echo "=== $(date '+%F %T') start ${TAG} on ${TASK}"
-  timeout 45m docker run --rm --name "smoke_${TAG}" --cpus=8 --memory=30g \
+  timeout 45m docker run --rm --name "smoke_${TAG}" --cpuset-cpus=0-7 --memory=30g \
     -v "${OUT}":/out -v "${CACHE}":/cache -v "${REPO}/edge/full_test_bench.sh":/full_test_bench.sh:ro \
     -e HF_HOME=/cache/hf -e MODEL="${MODEL}" -e NGL=0 -e CTX=8192 -e LLAMA_ARGS="${ARGS} -np 1" \
     -e BENCH_CTX=8192 -e BENCH_OBS_MAX_TOKENS=1448 -e TAG="${TAG}" -e SLOTS=1 -e AGENT=generic_v2 \
     -e OUT_DIR="/out/${TAG}" -e OBS_ARGS= -e TASK_ID="${TASK}" -e TEMPERATURE=0 -e REPEAT_N=1 \
     -e BENCH_CMD="bash /full_test_bench.sh" "${IMAGE}"
-  echo "=== $(date '+%F %T') end ${TAG} (exit $?)"
+  local RC=$?
+  echo "=== $(date '+%F %T') end ${TAG} (exit ${RC})"
   docker rm -f "smoke_${TAG}" > /dev/null 2>&1
 }
 G="--jinja --chat-template-kwargs '{\"enable_thinking\":false}'"
