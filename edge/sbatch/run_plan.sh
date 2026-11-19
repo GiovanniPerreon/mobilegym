@@ -3,7 +3,9 @@
 #SBATCH --job-name=mobilegym
 set -u
 REPO=/home/perreon/mobilegym-edge
-IMAGE=mobilegym_full:latest
+# IMAGE and LLAMA_TAG can be set when submitting, to use another llama.cpp build
+IMAGE=${IMAGE:-mobilegym_full:latest}
+LLAMA_TAG=${LLAMA_TAG:-server-cuda-b11347}
 if [ ! -d "${REPO}/.git" ]; then
   git clone -q -b main https://github.com/GiovanniPerreon/mobilegym "${REPO}" || exit 1
 else
@@ -13,7 +15,7 @@ fi
   flock 9
   if ! docker image inspect "${IMAGE}" > /dev/null 2>&1; then
     echo "=== $(date '+%F %T') building ${IMAGE} on $(hostname)"
-    docker build -q -f "${REPO}/build/Dockerfile" -t "${IMAGE}" "${REPO}/build" || exit 1
+    docker build -q --build-arg LLAMA_TAG="${LLAMA_TAG}" -f "${REPO}/build/Dockerfile" -t "${IMAGE}" "${REPO}/build" || exit 1
   fi
 ) 9> /home/perreon/.mobilegym_build.lock || { echo "=== image build failed on $(hostname)"; exit 1; }
 PLAN="${REPO}/$1"

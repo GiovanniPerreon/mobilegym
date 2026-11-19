@@ -1,4 +1,5 @@
-FROM ghcr.io/ggml-org/llama.cpp:server-cuda-b11347
+ARG LLAMA_TAG=server-cuda-b11347
+FROM ghcr.io/ggml-org/llama.cpp:${LLAMA_TAG}
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \

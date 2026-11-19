@@ -1,0 +1,7 @@
+# smoke test of the new families on the llama.cpp build b11960, two tasks each (last field)
+gemma4_e4b_q4_k_m_smoke_railway | unsloth/gemma-4-E4B-it-GGUF:Q4_K_M | --jinja --chat-template-kwargs '{"enable_thinking":false}' | generic_v2 | | 0 | 1 | 1 | account.Railway12306ForgotPasswordReset
+gemma4_e4b_q4_k_m_smoke_map     | unsloth/gemma-4-E4B-it-GGUF:Q4_K_M | --jinja --chat-template-kwargs '{"enable_thinking":false}' | generic_v2 | | 0 | 1 | 1 | crossapp_life.MapRatingConditionBuyTicket
+lfm3vl2b_q4_0_smoke_railway     | LiquidAI/LFM3-VL-2B-GGUF:Q4_0      | --jinja | generic_v2 | | 0 | 1 | 1 | account.Railway12306ForgotPasswordReset
+lfm3vl2b_q4_0_smoke_map         | LiquidAI/LFM3-VL-2B-GGUF:Q4_0      | --jinja | generic_v2 | | 0 | 1 | 1 | crossapp_life.MapRatingConditionBuyTicket
+gemma4_e2b_q4_k_m_smoke_railway | unsloth/gemma-4-E2B-it-GGUF:Q4_K_M | --jinja --chat-template-kwargs '{"enable_thinking":false}' | generic_v2 | | 0 | 1 | 1 | account.Railway12306ForgotPasswordReset
+gemma4_e2b_q4_k_m_smoke_map     | unsloth/gemma-4-E2B-it-GGUF:Q4_K_M | --jinja --chat-template-kwargs '{"enable_thinking":false}' | generic_v2 | | 0 | 1 | 1 | crossapp_life.MapRatingConditionBuyTicket
