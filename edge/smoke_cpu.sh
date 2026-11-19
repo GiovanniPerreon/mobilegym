@@ -1,12 +1,13 @@
 #!/bin/bash
 # Smoke test of the new families on CPU, without Slurm: builds the image on the CPU build b11960 of llama.cpp
-# and runs one task per model, one model at a time. Usage: bash edge/smoke_cpu.sh [task id]
+# and runs one task per model, one model at a time. Usage: bash edge/smoke_cpu.sh [task id] [part of a tag, to run only that model]
 set -u
 REPO=/home/perreon/mobilegym-edge
 IMAGE=mobilegym_full:b11960cpu
 OUT=/home/perreon/mobilegym_runs/smoke_families_cpu
 CACHE=/home/perreon/llama_cache/smoke_cpu
 TASK=${1:-account.Railway12306ForgotPasswordReset}
+ONLY=${2:-}
 mkdir -p "${OUT}" "${CACHE}"
 if ! docker image inspect "${IMAGE}" > /dev/null 2>&1; then
   echo "=== $(date '+%F %T') building ${IMAGE}"
@@ -14,6 +15,7 @@ if ! docker image inspect "${IMAGE}" > /dev/null 2>&1; then
 fi
 run() {
   local TAG=$1 MODEL=$2 ARGS=$3
+  [ -n "${ONLY}" ] && [[ "${TAG}" != *"${ONLY}"* ]] && return
   echo "=== $(date '+%F %T') start ${TAG} on ${TASK}"
   timeout 45m docker run --rm --name "smoke_${TAG}" --cpuset-cpus=0-7 --memory=30g \
     -v "${OUT}":/out -v "${CACHE}":/cache -v "${REPO}/edge/full_test_bench.sh":/full_test_bench.sh:ro \
@@ -27,7 +29,7 @@ run() {
 }
 G="--jinja --chat-template-kwargs '{\"enable_thinking\":false}'"
 run gemma4_e4b_q4_k_m unsloth/gemma-4-E4B-it-GGUF:Q4_K_M "${G}"
-run lfm3vl2b_q4_0 LiquidAI/LFM3-VL-2B-GGUF:Q4_0 "--jinja"
+run lfm3vl2b_q4_0 LiquidAI/LFM3-VL-2B-GGUF:Q4_0 "${G} --reasoning-budget 0"
 run gemma4_e2b_q4_k_m unsloth/gemma-4-E2B-it-GGUF:Q4_K_M "${G}"
 rm -rf "${CACHE}"
 echo "=== $(date '+%F %T') done, results in ${OUT}"
