@@ -26,7 +26,7 @@ FILLER = "The user opened the settings and tapped the switch, then went back to 
 
 def level_of(filename: str) -> Optional[str]:
     name = filename.rsplit("/", 1)[-1]
-    if name.lower().startswith("mmproj"):
+    if name.lower().startswith(("mmproj", "mtp-")):
         return None
     for lv in sorted(LADDER, key=len, reverse=True):
         if re.search(rf"[-_.]{re.escape(lv)}\.gguf$", name, re.IGNORECASE):
