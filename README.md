@@ -51,6 +51,7 @@ docker build -f build/Dockerfile -t mobilegym_full:latest build
 ```
 
 The CPU memory measurements use the official llama.cpp image `ghcr.io/ggml-org/llama.cpp:server-b11347`. The
+build argument `LLAMA_TAG` changes the base image (section 6). The
 analysis scripts need only Python 3.11 and `pip install -r edge/requirements.txt`.
 
 ## 3. Rerunning the experiments
@@ -174,7 +175,36 @@ resolution (512, 1024 image tokens and full screenshot), two minutes apart, or t
 inference to `~/phone_bench_<mode>.csv` (Table 5.11, Table 5.13, Figure 5.6,
 Table 5.14). These CSVs are not in the data archive.
 
-## 6. Failure analysis and resumed episodes
+## 6. Other model families
+
+After the thesis, for the defence, the same pipeline evaluated two families other than Qwen: Gemma 4 E4B and E2B
+([Gemma Team, 2026](https://arxiv.org/abs/2607.02770)) and LFM3-VL-2B ([Liquid AI, 2026](https://www.liquid.ai/blog/lfm3)),
+in BF16 and at Q4_K_M, with thinking turned off as for the other models. They need a newer llama.cpp (build b11960), so
+the image is built from another base, chosen with `LLAMA_TAG`, under another name, chosen with `IMAGE`; without the two
+variables everything uses `mobilegym_full:latest` on build b11347 as above:
+
+```bash
+IMAGE=mobilegym_full:b11960 LLAMA_TAG=server-cuda-b11960 bash edge/sbatch/submit.sh edge/sbatch/plans/families.txt 2
+IMAGE=mobilegym_full:b11960 LLAMA_TAG=server-cuda-b11960 bash edge/sbatch/submit.sh edge/sbatch/plans/families_lfm3.txt 2
+```
+
+The first line of `families.txt` repeats Qwen3-VL-4B at Q4_K_M on the first three difficulty levels, to check that
+the newer build gives the results of the thesis (23 tasks against 20). Before the GPU runs, `bash edge/smoke_cpu.sh`
+runs one task per new model on CPU, without Slurm. The memory of a step is measured as in section 5, directly on the
+master node, and the effective bits per weight with `edge.bpw`:
+
+```bash
+bash edge/sbatch/run_memory_families.sh
+python3 -m edge.bpw --repos unsloth/gemma-4-E4B-it-GGUF unsloth/gemma-4-E2B-it-GGUF LiquidAI/LFM3-VL-2B-GGUF --out bpw_families.csv
+```
+
+| Plan or script | Output in the archive |
+| --- | --- |
+| `families.txt`, `families_lfm3.txt` | `runs/families/`, `runs/families_lfm3/` |
+| `run_memory_families.sh` | `memory/memory_step_families.csv` |
+| `edge.bpw` above | `memory/bpw_families.csv` |
+
+## 7. Failure analysis and resumed episodes
 
 1. `python3 -m edge.struggle_points mobilegym_data/runs/baseline/qwen3vl4b_f16_screenshot_gen --csv struggle_f16.csv`
    finds where each failed episode stops making progress (`analysis/struggle_f16.csv`).
@@ -186,7 +216,7 @@ Table 5.14). These CSVs are not in the data archive.
 4. `python3 -m edge.resume_replay check --plan <plan> --replay <output folder> ...` collects the outcomes
    (`resume_plans/check_f16*.csv`, Table 5.17).
 
-## 7. Earlier pipeline
+## 8. Earlier pipeline
 
 In `edge/` (not in `edge/sbatch/`), `run_matrix.py` with `matrix.*.yaml`, `meter_proxy.py`, `join_steps.py`,
 `project_latency.py`, `analyze.py`, `report_runs.py`, `collect_report.sh`, `run_*.sh`, `slurm_full_test.sh` and `full_test_4b_*.sh` / `full_test_d1.sh`
@@ -194,7 +224,7 @@ belong to the pilot and selection phase, which ran configurations under the memo
 profiles (`edge/profiles.yaml`). They are not used for the results of the thesis; their outputs are in
 `mobilegym_data/early_phase/`. `python3 -m edge.selftest` checks them offline.
 
-## 8. MobileGym
+## 9. MobileGym
 
 The simulator, its apps and the benchmark are [MobileGym](https://github.com/Purewhiter/mobilegym)
 ([paper](https://arxiv.org/abs/2605.26114), [project page](https://mobilegym.dev)). Its own README, with the
