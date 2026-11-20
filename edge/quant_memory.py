@@ -16,7 +16,7 @@ from edge.bench_device import make_png
 from edge.common import load_profiles
 from edge.memcheck import check
 
-LADDER = ["F16", "BF16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q4_K_S", "IQ4_XS", "Q3_K_M", "Q3_K_S", "IQ3_XXS",
+LADDER = ["F16", "BF16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q4_K_S", "Q4_0", "IQ4_XS", "Q3_K_M", "Q3_K_S", "IQ3_XXS",
           "Q2_K", "Q2_K_L", "Q2_K_XL", "IQ2_M", "IQ2_XXS", "IQ1_M", "IQ1_S"]
 FIELDS = ["repo", "file", "level", "file_mib", "mmproj", "ctx", "lower_bound_mib", "rest_vmhwm_mib",
           "image_vmhwm_mib", "image_increase_mib", "load_s", "image_s", "status", "note", "cache_type",
@@ -179,7 +179,7 @@ def measure(repo: str, level: str, gguf: Path, mmproj: Optional[Path], ctx: int,
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", required=True, help="Hugging Face repository with the GGUF files")
-    ap.add_argument("--mmproj-file", help="vision projector file (omit for text-only); 'match:TEXT' picks the only "
+    ap.add_argument("--mmproj-file", help="vision projector file (omit for text-only); 'auto' prefers F16, BF16, F32, Q8_0; 'match:TEXT' picks the only "
                                           "mmproj file of --mmproj-repo whose name contains TEXT, e.g. match:Q8_0")
     ap.add_argument("--mmproj-repo", help="repository of the projector (default: --repo)")
     ap.add_argument("--cache-type", default="f16",
@@ -213,7 +213,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.mmproj_file:
         mrepo = args.mmproj_repo or args.repo
         mfile = args.mmproj_file
-        if mfile.startswith("match:"):
+        if mfile == "auto":
+            names = [f for f in list_files(mrepo) if f.rsplit("/", 1)[-1].lower().startswith("mmproj")]
+            pick = [f for pref in ("f16", "bf16", "f32", "q8_0") for f in names
+                    if f.rsplit("/", 1)[-1].lower().replace(".gguf", "").endswith(pref)]
+            if not names:
+                print(f"[error] {mrepo}: no mmproj file", flush=True)
+                return 1
+            mfile = (pick or names)[0]
+        elif mfile.startswith("match:"):
             want = mfile[len("match:"):].lower()
             found = [f for f in list_files(mrepo) if f.rsplit("/", 1)[-1].lower().startswith("mmproj") and want in f.lower()]
             if len(found) != 1:
