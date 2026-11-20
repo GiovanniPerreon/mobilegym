@@ -2,7 +2,7 @@
 #SBATCH -N 1
 #SBATCH --job-name=mobilegym
 set -u
-REPO=/home/perreon/mobilegym-edge
+REPO=/home/perreon/mobilegym
 # IMAGE and LLAMA_TAG can be set when submitting, to use another llama.cpp build
 IMAGE=${IMAGE:-mobilegym_full:latest}
 LLAMA_TAG=${LLAMA_TAG:-server-cuda-b11347}

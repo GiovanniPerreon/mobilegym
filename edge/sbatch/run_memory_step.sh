@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-REPO=/home/perreon/mobilegym-edge
+REPO=/home/perreon/mobilegym
 cd "${REPO}" || exit 1
 git pull -q --ff-only || echo "[warn] could not fast-forward ${REPO}, using it as it is"
 export EDGE_IMAGE_CPU=ghcr.io/ggml-org/llama.cpp:server-b11347

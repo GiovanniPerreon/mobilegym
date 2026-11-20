@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /home/perreon/mobilegym-edge || exit 1
+cd /home/perreon/mobilegym || exit 1
 
 echo "=== $(date +%T) cleaning leftovers"
 pkill -u perreon -f "edge.run_matrix" 2>/dev/null

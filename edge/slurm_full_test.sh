@@ -11,7 +11,7 @@ run() {
   echo "=== $(date +%T) start $1"
   docker run --rm --name "full_$1" --gpus "device=${CUDA_VISIBLE_DEVICES}" \
     -v "${RUNS}":/out -v /home/perreon/llama_cache:/cache \
-    -v /home/perreon/mobilegym-edge/edge/full_test_bench.sh:/full_test_bench.sh:ro \
+    -v /home/perreon/mobilegym/edge/full_test_bench.sh:/full_test_bench.sh:ro \
     -e HF_HOME=/cache/hf -e MODEL="$2" -e CTX=98304 -e LLAMA_ARGS="$3" \
     -e TAG="$1" -e SLOTS=6 -e AGENT="$4" -e OBS_ARGS="$5" -e BENCH_CMD="bash /full_test_bench.sh" \
     mobilegym_full:latest

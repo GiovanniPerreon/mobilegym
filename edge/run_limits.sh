@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /home/perreon/mobilegym-edge || exit 1
+cd /home/perreon/mobilegym || exit 1
 echo "=== $(date +%T) node checks"
 ls -l /dev/kvm 2>&1
 lscpu -e=CPU,CORE,MAXMHZ 2>&1 | sed -n '1p;18,33p'

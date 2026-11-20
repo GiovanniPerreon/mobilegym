@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /home/perreon/mobilegym-edge || exit 1
+cd /home/perreon/mobilegym || exit 1
 OUT=edge/results/quant_memory_variants.csv
 M4B=unsloth/Qwen3-VL-4B-Instruct-GGUF
 OFFICIAL=Qwen/Qwen3-VL-4B-Instruct-GGUF

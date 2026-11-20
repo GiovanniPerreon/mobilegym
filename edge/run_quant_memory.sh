@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /home/perreon/mobilegym-edge || exit 1
+cd /home/perreon/mobilegym || exit 1
 while pgrep -u perreon -f "edge.run_matrix" > /dev/null; do
   echo "=== $(date +%T) waiting for the running matrix to finish"; sleep 120
 done

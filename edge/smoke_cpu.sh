@@ -2,7 +2,7 @@
 # Smoke test of the new families on CPU, without Slurm: builds the image on the CPU build b11960 of llama.cpp
 # and runs one task per model, one model at a time. Usage: bash edge/smoke_cpu.sh [task id] [part of a tag, to run only that model]
 set -u
-REPO=/home/perreon/mobilegym-edge
+REPO=/home/perreon/mobilegym
 IMAGE=mobilegym_full:b11960cpu
 OUT=/home/perreon/mobilegym_runs/smoke_families_cpu
 CACHE=/home/perreon/llama_cache/smoke_cpu

@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /home/perreon/mobilegym-edge || exit 1
+cd /home/perreon/mobilegym || exit 1
 {
 echo "### date"; date
 echo "### git"; git log --oneline -1
