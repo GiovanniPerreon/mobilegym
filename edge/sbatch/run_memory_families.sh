@@ -16,7 +16,7 @@ for M in gemma-4-E4B-it gemma-4-E2B-it; do
     --server-args "${ARGS}" ${STEP} --delete-after --out "${OUT}"
 done
 echo "=== $(date +%T) LFM3-VL-2B"
-python3 -m edge.quant_memory --repo LiquidAI/LFM3-VL-2B-GGUF --mmproj-file auto --ctx 8192 --levels Q4_0 \
+python3 -m edge.quant_memory --repo LiquidAI/LFM3-VL-2B-GGUF --mmproj-file auto --ctx 8192 --levels BF16,Q4_K_M,Q4_0 \
   --server-args "${ARGS} --reasoning-budget 0" ${STEP} --delete-after --out "${OUT}"
 rm -rf /home/perreon/edge_models/gemma-4-E4B-it-GGUF /home/perreon/edge_models/gemma-4-E2B-it-GGUF \
   /home/perreon/edge_models/LFM3-VL-2B-GGUF

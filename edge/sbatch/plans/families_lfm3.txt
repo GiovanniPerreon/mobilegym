@@ -1,0 +1,3 @@
+# LFM3-VL-2B at the other precisions of its official repository, on the llama.cpp build b11960
+lfm3vl2b_q4_k_m_screenshot_gen | LiquidAI/LFM3-VL-2B-GGUF:Q4_K_M | --jinja --chat-template-kwargs '{"enable_thinking":false}' --reasoning-budget 0 | generic_v2 | | 0 | 1 | 6
+lfm3vl2b_bf16_screenshot_gen   | LiquidAI/LFM3-VL-2B-GGUF:BF16   | --jinja --chat-template-kwargs '{"enable_thinking":false}' --reasoning-budget 0 | generic_v2 | | 0 | 1 | 6
